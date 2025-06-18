@@ -1,3 +1,10 @@
+# [1.5.0-beta.2](https://github.com/ash0ne/docker-pdf-server/compare/v1.5.0-beta.1...v1.5.0-beta.2) (2025-06-18)
+
+
+### Features
+
+* update dependencies in beta ([c2c7408](https://github.com/ash0ne/docker-pdf-server/commit/c2c74084218ffa2b2582e68a873af095a17d71c8))
+
 # [1.5.0-beta.1](https://github.com/ash0ne/docker-pdf-server/compare/v1.4.1...v1.5.0-beta.1) (2025-01-19)
 
 
