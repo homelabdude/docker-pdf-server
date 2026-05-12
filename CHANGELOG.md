@@ -1,3 +1,43 @@
+# [1.5.0-beta.6](https://github.com/homelabdude/docker-pdf-server/compare/v1.5.0-beta.5...v1.5.0-beta.6) (2026-05-12)
+
+
+### Features
+
+* version bumps on Jinja, Markupsafe and SQLAlchemy ([#51](https://github.com/homelabdude/docker-pdf-server/issues/51)) ([829533f](https://github.com/homelabdude/docker-pdf-server/commit/829533fb45cc95ab8bf3621a4fd794a24b48b75c))
+
+# [1.5.0-beta.5](https://github.com/homelabdude/docker-pdf-server/compare/v1.5.0-beta.4...v1.5.0-beta.5) (2026-05-12)
+
+
+### Bug Fixes
+
+* Update README and add delete user button ([#79](https://github.com/homelabdude/docker-pdf-server/issues/79)) ([3fe0b6f](https://github.com/homelabdude/docker-pdf-server/commit/3fe0b6f97d1d6cf40c236e3274e228b983eabd12))
+
+# [1.5.0-beta.4](https://github.com/homelabdude/docker-pdf-server/compare/v1.5.0-beta.3...v1.5.0-beta.4) (2026-05-12)
+
+
+### Bug Fixes
+
+* Fix Dockerfile ([#78](https://github.com/homelabdude/docker-pdf-server/issues/78)) ([5a8f443](https://github.com/homelabdude/docker-pdf-server/commit/5a8f4434f77f8ea53a74614d3c6de0a60955c3df))
+
+# [1.5.0-beta.3](https://github.com/homelabdude/docker-pdf-server/compare/v1.5.0-beta.2...v1.5.0-beta.3) (2026-05-12)
+
+
+### Bug Fixes
+
+* Update to correct URL in semver metadata ([#77](https://github.com/homelabdude/docker-pdf-server/issues/77)) ([aa632f3](https://github.com/homelabdude/docker-pdf-server/commit/aa632f37f21dd6f93dbbbf71b8fe43f0f2e30360))
+
+
+### Features
+
+* Rewrite to ([#76](https://github.com/homelabdude/docker-pdf-server/issues/76)) ([90ee085](https://github.com/homelabdude/docker-pdf-server/commit/90ee0858e7ab79ae6e48cba829dbaecda1f37b33))
+
+# [1.5.0-beta.2](https://github.com/ash0ne/docker-pdf-server/compare/v1.5.0-beta.1...v1.5.0-beta.2) (2025-06-18)
+
+
+### Features
+
+* update dependencies in beta ([c2c7408](https://github.com/ash0ne/docker-pdf-server/commit/c2c74084218ffa2b2582e68a873af095a17d71c8))
+
 # [1.5.0-beta.1](https://github.com/ash0ne/docker-pdf-server/compare/v1.4.1...v1.5.0-beta.1) (2025-01-19)
 
 
