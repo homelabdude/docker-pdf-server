@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+
+{% block title %}Sign in — PDF Library{% endblock %}
+
+{% block head %}
+<style>
+  .login-wrap {
+    min-height: calc(100vh - 61px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1rem;
+  }
+  .login-card {
+    background: var(--surface);
+    border-radius: var(--radius);
+    box-shadow: 0 4px 32px rgba(0,0,0,.1);
+    padding: 2.5rem 2rem;
+    width: 100%;
+    max-width: 360px;
+  }
+  .dark .login-card { box-shadow: 0 4px 32px rgba(0,0,0,.5); }
+  .login-logo { text-align:center; margin-bottom:2rem; }
+  .login-logo i { font-size:2rem; color:var(--text-secondary); }
+  .login-logo h1 { font-size:1.15rem; font-weight:700; color:var(--text-primary); margin:.5rem 0 0; letter-spacing:-.01em; }
+  .login-logo p { font-size:.8rem; color:var(--text-secondary); margin:.25rem 0 0; }
+  .btn-signin { width:100%; justify-content:center; padding:.65rem; margin-top:.5rem; border-radius:var(--radius-sm); }
+</style>
+{% endblock %}
+
+{% block nav %}
+<nav class="app-nav">
+  <a href="/" class="brand">
+    <i class="fa-solid fa-book-open" style="margin-right:6px;opacity:.6;"></i>PDF Library
+  </a>
+  <div class="nav-actions">
+    <button class="icon-btn" id="themeToggle" onclick="toggleTheme()" title="Toggle theme">
+      <i class="fa-solid fa-moon"></i>
+    </button>
+  </div>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="login-wrap">
+  <div class="login-card">
+    <div class="login-logo">
+      <i class="fa-solid fa-book-open"></i>
+      <h1>PDF Library</h1>
+      <p>Sign in to continue</p>
+    </div>
+
+    <form method="POST" novalidate>
+      {{ form.hidden_tag() }}
+      <div class="form-field">
+        <label for="username">Username</label>
+        {{ form.username(id="username", placeholder="Enter your username", autofocus=true) }}
+      </div>
+      <div class="form-field">
+        <label for="password">Password</label>
+        {{ form.password(id="password", placeholder="Enter your password") }}
+      </div>
+      <button type="submit" class="btn-primary-dark btn-signin">Sign in</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
