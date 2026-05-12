@@ -1,3 +1,15 @@
+# [1.5.0-beta.3](https://github.com/homelabdude/docker-pdf-server/compare/v1.5.0-beta.2...v1.5.0-beta.3) (2026-05-12)
+
+
+### Bug Fixes
+
+* Update to correct URL in semver metadata ([#77](https://github.com/homelabdude/docker-pdf-server/issues/77)) ([aa632f3](https://github.com/homelabdude/docker-pdf-server/commit/aa632f37f21dd6f93dbbbf71b8fe43f0f2e30360))
+
+
+### Features
+
+* Rewrite to ([#76](https://github.com/homelabdude/docker-pdf-server/issues/76)) ([90ee085](https://github.com/homelabdude/docker-pdf-server/commit/90ee0858e7ab79ae6e48cba829dbaecda1f37b33))
+
 # [1.5.0-beta.2](https://github.com/ash0ne/docker-pdf-server/compare/v1.5.0-beta.1...v1.5.0-beta.2) (2025-06-18)
 
 
