@@ -1,3 +1,10 @@
+# [1.5.0-beta.5](https://github.com/homelabdude/docker-pdf-server/compare/v1.5.0-beta.4...v1.5.0-beta.5) (2026-05-12)
+
+
+### Bug Fixes
+
+* Update README and add delete user button ([#79](https://github.com/homelabdude/docker-pdf-server/issues/79)) ([3fe0b6f](https://github.com/homelabdude/docker-pdf-server/commit/3fe0b6f97d1d6cf40c236e3274e228b983eabd12))
+
 # [1.5.0-beta.4](https://github.com/homelabdude/docker-pdf-server/compare/v1.5.0-beta.3...v1.5.0-beta.4) (2026-05-12)
 
 
