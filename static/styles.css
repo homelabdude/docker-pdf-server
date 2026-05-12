@@ -303,7 +303,7 @@ body {
 .pdf-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 10px;
+  gap: 14px;
   margin-top: 0.5rem;
 }
 
@@ -409,6 +409,26 @@ body {
 
 .btn-delete:hover {
   background: var(--danger);
+}
+
+/* delete button used in table rows (admin page) */
+.btn-delete-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 6px;
+  border: none;
+  background: rgba(255, 59, 48, 0.1);
+  color: var(--danger);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background var(--transition);
+}
+
+.btn-delete-row:hover {
+  background: rgba(255, 59, 48, 0.22);
 }
 
 /* ── Pagination ── */

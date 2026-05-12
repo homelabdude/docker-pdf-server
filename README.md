@@ -25,7 +25,7 @@ browser-based access, allowing for quick viewing and on-the-go reading on any de
 - This server is not designed to be a comprehensive document organizer like Paperless-ngx.
 - It lacks a database or any form of grouping/bookmarking system and relies solely on file system, potentially limiting
   scalability if you want to have anything over a few 1000 files.
-- Basic HTTP authentication is implemented, but not OAuth. It is advisable not to expose the server publicly without additional
+- Session-based authentication is implemented, but not OAuth. It is advisable not to expose the server publicly without additional
   security. I use this with Authelia running on my reverse-proxy.
 - Currently, it lacks a folder system. Although this feature is simple enough to do and could be considered for future
   implementation.
@@ -58,9 +58,7 @@ can add additional admins, maintainers and readers
 - **Maintainer** - Cannot add users but can upload, delete files
 - **Reader** - Can only read files
 
-> Note: Because of how Basic HTTP auth works, the only way to switch user is to close and re-open the browser. 
-> On MacOS, this means exiting the browser fully and re-opening it. If you have the user and password saved in the browser, 
-> you might also have to delete that.
+> Note: To switch users, use the logout button in the top-right corner of the app.
 
 ### Building and Running Locally for Development
 

@@ -55,7 +55,7 @@
               <form method="POST" action="{{ url_for('delete_user') }}" style="display:inline"
                 onsubmit="return confirm('Delete user {{ user.username }}?');">
                 <input type="hidden" name="user_id" value="{{ user.id }}" />
-                <button type="submit" class="btn-delete">
+                <button type="submit" class="btn-delete-row">
                   <i class="fa-solid fa-trash"></i> Delete
                 </button>
               </form>
