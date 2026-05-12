@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- Run before first paint to prevent flash of wrong theme -->
+  <script>
+    (function(){
+      var s=localStorage.getItem('theme');
+      var d=window.matchMedia('(prefers-color-scheme:dark)').matches;
+      if(s==='dark'||(s===null&&d)) document.documentElement.classList.add('dark');
+      else if(s==='light') document.documentElement.classList.add('light');
+    })();
+  </script>
+  <title>{% block title %}PDF Library{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  {% block head %}{% endblock %}
+</head>
+<body>
+
+  {% block nav %}
+  <nav class="app-nav">
+    <a href="{{ url_for('index') }}" class="brand">
+      <i class="fa-solid fa-book-open" style="margin-right:6px;opacity:.6;"></i>PDF Library
+    </a>
+    <div class="nav-actions">
+      {% block nav_actions %}{% endblock %}
+      <button class="icon-btn" id="themeToggle" onclick="toggleTheme()" title="Toggle theme">
+        <i class="fa-solid fa-moon"></i>
+      </button>
+    </div>
+  </nav>
+  {% endblock %}
+
+  <div class="page-content">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <ul class="flash-list">
+          {% for category, message in messages %}
+            <li class="flash flash-{{ category }}">{{ message }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+  </div>
+
+  <script>
+    function toggleTheme() {
+      var html = document.documentElement;
+      var isDark = html.classList.contains('dark');
+      html.classList.toggle('dark', !isDark);
+      html.classList.toggle('light', isDark);
+      localStorage.setItem('theme', isDark ? 'light' : 'dark');
+      syncThemeIcon();
+    }
+    function syncThemeIcon() {
+      var btn = document.getElementById('themeToggle');
+      if (!btn) return;
+      btn.querySelector('i').className = document.documentElement.classList.contains('dark')
+        ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
+    }
+    syncThemeIcon();
+  </script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

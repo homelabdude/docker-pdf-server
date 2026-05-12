@@ -1,5 +1,10 @@
 import os
 import math
+import time
+import threading
+from urllib.parse import urlparse, urljoin
+
+import fitz  # PyMuPDF
 from flask import (
     Flask,
     render_template,
@@ -9,16 +14,21 @@ from flask import (
     send_from_directory,
     flash,
     jsonify,
-    g,
 )
-from flask_httpauth import HTTPBasicAuth
+from flask_login import (
+    LoginManager,
+    UserMixin,
+    login_user,
+    logout_user,
+    login_required,
+    current_user,
+)
 from flask_sqlalchemy import SQLAlchemy
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, SelectField, SubmitField
 from wtforms.validators import DataRequired
 from flask_paginate import Pagination
 from werkzeug.security import generate_password_hash, check_password_hash
-from wand.image import Image
 
 UPLOAD_FOLDER = "library"
 APP_KEY = os.environ.get("DOCKER_PDF_SERVER_KEY", "super_secret_key")
@@ -27,17 +37,34 @@ APP_PASSWORD = os.environ.get("DOCKER_PDF_SERVER_PASSWORD", "password")
 ALLOWED_EXTENSIONS = {"pdf"}
 
 app = Flask(__name__)
-auth = HTTPBasicAuth()
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///users.db"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["SECRET_KEY"] = APP_KEY
 
 db = SQLAlchemy(app)
+login_manager = LoginManager(app)
+login_manager.login_view = "login"
+login_manager.login_message = None
+
 app.app_context().push()
 
 
-class User(db.Model):
+class EnvAdminUser(UserMixin):
+    """Represents the env-var-configured admin; never stored in the DB."""
+    id = 0
+
+    @property
+    def username(self):
+        return APP_USER
+
+    role = "admin"
+
+    def get_id(self):
+        return "0"
+
+
+class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.String(128), nullable=False)
@@ -48,6 +75,12 @@ class User(db.Model):
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
+
+
+class LoginForm(FlaskForm):
+    username = StringField("Username", validators=[DataRequired()])
+    password = PasswordField("Password", validators=[DataRequired()])
+    submit = SubmitField("Log in")
 
 
 class UserForm(FlaskForm):
@@ -65,34 +98,96 @@ class UserForm(FlaskForm):
     submit = SubmitField("Add User")
 
 
+@login_manager.user_loader
+def load_user(user_id):
+    if int(user_id) == 0:
+        return EnvAdminUser()
+    return db.session.get(User, int(user_id))
+
+
 def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
-@auth.verify_password
-def verify_password(username, password):
-    if username == APP_USER and password == APP_PASSWORD:
-        g.current_user = User(username=username, role="admin")
-        return g.current_user
-    user = User.query.filter_by(username=username).first()
-    if user and user.check_password(password):
-        g.current_user = user
-        return g.current_user
-    return None
+def safe_redirect(target):
+    ref = urlparse(request.host_url)
+    test = urlparse(urljoin(request.host_url, target))
+    return test.scheme in ("http", "https") and ref.netloc == test.netloc
 
 
-@auth.error_handler
-def unauthorized():
-    return jsonify({"error": "Unauthorized"}), 401
+def generate_thumbnail(pdf_path, thumbnail_path):
+    doc = fitz.open(pdf_path)
+    page = doc[0]
+    pix = page.get_pixmap(matrix=fitz.Matrix(150 / 72, 150 / 72))
+    pix.save(thumbnail_path)
+    doc.close()
 
 
-@app.before_request
-def before_request():
-    g.current_user = auth.current_user()
+# ── Directory cache ──────────────────────────────────────────────────────────
+# Replaces per-request os.listdir + 2000 individual getmtime() stat() calls
+# with a single os.scandir() pass, cached for 15 s. Upload/delete invalidate
+# it immediately so the UI stays consistent.
+
+_CACHE_TTL = 15.0
+_cache_lock = threading.Lock()
+_cache: dict = {"stamp": 0.0, "pdfs": [], "pngs": set()}
+
+
+def _scan_library(folder: str) -> tuple[list[tuple[str, float]], set[str]]:
+    """Return ([(name, mtime), ...], {png_names}) from a single scandir pass."""
+    now = time.monotonic()
+    with _cache_lock:
+        if now - _cache["stamp"] < _CACHE_TTL:
+            return _cache["pdfs"], _cache["pngs"]
+        pdfs: list[tuple[str, float]] = []
+        pngs: set[str] = set()
+        with os.scandir(folder) as it:
+            for entry in it:
+                if not entry.is_file():
+                    continue
+                if entry.name.endswith(".pdf"):
+                    pdfs.append((entry.name, entry.stat().st_mtime))
+                elif entry.name.endswith(".png"):
+                    pngs.add(entry.name)
+        _cache.update(stamp=now, pdfs=pdfs, pngs=pngs)
+        return pdfs, pngs
+
+
+def _invalidate_cache() -> None:
+    with _cache_lock:
+        _cache["stamp"] = 0.0
+
+
+@app.route("/", methods=["GET", "POST"])
+def login():
+    if current_user.is_authenticated:
+        return redirect(url_for("index"))
+    form = LoginForm()
+    if form.validate_on_submit():
+        username = form.username.data
+        password = form.password.data
+        if username == APP_USER and password == APP_PASSWORD:
+            login_user(EnvAdminUser())
+            next_page = request.args.get("next")
+            return redirect(next_page if next_page and safe_redirect(next_page) else url_for("index"))
+        db_user = User.query.filter_by(username=username).first()
+        if db_user and db_user.check_password(password):
+            login_user(db_user)
+            next_page = request.args.get("next")
+            return redirect(next_page if next_page and safe_redirect(next_page) else url_for("index"))
+        flash("Invalid username or password.", "danger")
+    return render_template("login.html", form=form)
+
+
+@app.route("/logout")
+@login_required
+def logout():
+    logout_user()
+    return redirect(url_for("login"))
 
 
 @app.errorhandler(500)
-def internal_server_error():
+def internal_server_error(e):
     return (
         jsonify(
             {
@@ -103,89 +198,85 @@ def internal_server_error():
     )
 
 
-@app.route("/")
-@auth.login_required
+@app.route("/library")
+@login_required
 def index():
     page = request.args.get("page", 1, type=int)
-    per_page = 12
+    per_page = max(4, min(120, request.args.get("per_page", 12, type=int)))
+    sort_order = request.args.get("sort", "newest")
     upload_folder = app.config["UPLOAD_FOLDER"]
-    pdf_files = [file for file in os.listdir(upload_folder) if file.endswith(".pdf")]
+
+    pdf_entries, png_set = _scan_library(upload_folder)
+    reverse = sort_order != "oldest"
+    pdf_files = [n for n, _ in sorted(pdf_entries, key=lambda x: x[1], reverse=reverse)]
 
     total_files = len(pdf_files)
-    final_page = math.ceil(total_files / per_page)
-
+    final_page = math.ceil(total_files / per_page) if total_files else 1
     start = (page - 1) * per_page
-    end = start + per_page
-
-    pdf_files_slice = pdf_files[start:end] if start < total_files else []
+    pdf_files_slice = pdf_files[start:start + per_page] if start < total_files else []
     pagination = Pagination(page=page, per_page=per_page, total=total_files)
 
-    pdf_files_with_thumbnails = []
-    for file in pdf_files_slice:
-        thumbnail_path = f"{file}.png"
-        if not os.path.exists(os.path.join(upload_folder, f"{file}.png")):
-            thumbnail_path = "pdf-file.png"
-        pdf_files_with_thumbnails.append({"file": file, "thumbnail": thumbnail_path})
+    files = [
+        {"file": f, "thumbnail": f"{f}.png" if f"{f}.png" in png_set else "pdf-file.png"}
+        for f in pdf_files_slice
+    ]
 
     return render_template(
         "index.html",
-        files=pdf_files_with_thumbnails,
+        files=files,
         pagination=pagination,
         last=final_page,
+        sort_order=sort_order,
+        per_page=per_page,
     )
 
 
 @app.route("/search")
-@auth.login_required
+@login_required
 def search():
-    query = request.args.get("query", "")
+    query = request.args.get("query", "").strip()
     page = request.args.get("page", 1, type=int)
-    per_page = 12
-    limit_exceeded = False
+    per_page = max(4, min(120, request.args.get("per_page", 12, type=int)))
+    sort_order = request.args.get("sort", "newest")
     upload_folder = app.config["UPLOAD_FOLDER"]
 
-    if query:
-        query = query.strip()
-
+    pdf_entries, png_set = _scan_library(upload_folder)
+    query_lower = query.lower()
+    reverse = sort_order != "oldest"
     pdf_files = [
-        file
-        for file in os.listdir(upload_folder)
-        if file.endswith(".pdf") and query.lower() in file.lower()
+        n for n, _ in sorted(
+            [(n, m) for n, m in pdf_entries if query_lower in n.lower()],
+            key=lambda x: x[1],
+            reverse=reverse,
+        )
     ]
 
     total_files = len(pdf_files)
-    final_page = math.ceil(total_files / per_page)
-
-    if total_files > 20:
-        limit_exceeded = True
-
+    final_page = math.ceil(total_files / per_page) if total_files else 1
     start = (page - 1) * per_page
-    end = start + per_page
-
-    pdf_files_slice = pdf_files[start:end] if start < total_files else []
+    pdf_files_slice = pdf_files[start:start + per_page] if start < total_files else []
     pagination = Pagination(page=page, per_page=per_page, total=total_files)
 
-    pdf_files_with_thumbnails = []
-    for file in pdf_files_slice:
-        thumbnail_path = f"{file}.png"
-        if not os.path.exists(os.path.join(upload_folder, f"{file}.png")):
-            thumbnail_path = "pdf-file.png"
-        pdf_files_with_thumbnails.append({"file": file, "thumbnail": thumbnail_path})
+    files = [
+        {"file": f, "thumbnail": f"{f}.png" if f"{f}.png" in png_set else "pdf-file.png"}
+        for f in pdf_files_slice
+    ]
 
     return render_template(
         "index.html",
-        files=pdf_files_with_thumbnails,
+        files=files,
         query=query,
         pagination=pagination,
         last=final_page,
-        limit_exceeded=limit_exceeded,
+        sort_order=sort_order,
+        per_page=per_page,
     )
 
 
 @app.route("/upload", methods=["POST"])
-@auth.login_required
+@login_required
 def upload_file():
-    if g.current_user.role not in ["admin", "maintainer"]:
+    if current_user.role not in ["admin", "maintainer"]:
         flash("Unauthorized access!", "danger")
         return redirect(url_for("index"))
 
@@ -200,29 +291,29 @@ def upload_file():
         file.save(file_path)
 
         try:
-            thumbnail_path = os.path.join(
-                app.config["UPLOAD_FOLDER"], filename + ".png"
-            )
-            with Image(filename=file_path + "[0]", resolution=100) as img:
-                img.format = "png"
-                img.save(filename=thumbnail_path)
+            thumbnail_path = os.path.join(app.config["UPLOAD_FOLDER"], filename + ".png")
+            generate_thumbnail(file_path, thumbnail_path)
         except Exception:
-            error_message = "An error occurred while processing your request. Could not generate thumbnail. The PDF uploaded maybe malformed. You may still view it if your client supports it."
+            error_message = (
+                "Could not generate thumbnail. The PDF may be malformed. "
+                "You may still view it if your client supports it."
+            )
             return render_template("error.html", error_message=error_message)
 
+        _invalidate_cache()
         return redirect(url_for("index"))
 
 
 @app.route("/library/<filename>")
-@auth.login_required
+@login_required
 def uploaded_file(filename):
     return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
 
 
 @app.route("/delete", methods=["POST"])
-@auth.login_required
+@login_required
 def delete_file():
-    if g.current_user.role not in ["admin", "maintainer"]:
+    if current_user.role not in ["admin", "maintainer"]:
         flash("Unauthorized access!", "danger")
         return redirect(url_for("index"))
 
@@ -233,16 +324,17 @@ def delete_file():
         thumbnail_path = os.path.join(app.config["UPLOAD_FOLDER"], filename + ".png")
         if os.path.exists(thumbnail_path):
             os.remove(thumbnail_path)
-        flash("File deleted successfully", "success")
+        _invalidate_cache()
+        flash("File deleted successfully.", "success")
     else:
-        flash("File not found", "error")
+        flash("File not found.", "error")
     return redirect(url_for("index"))
 
 
 @app.route("/admin", methods=["GET", "POST"])
-@auth.login_required
+@login_required
 def admin():
-    if g.current_user.role != "admin":
+    if current_user.role != "admin":
         flash("Unauthorized access!", "danger")
         return redirect(url_for("index"))
 
@@ -252,13 +344,13 @@ def admin():
         password = form.password.data
         role = form.role.data
         if User.query.filter_by(username=username).first():
-            flash("Username already exists", "danger")
+            flash("Username already exists.", "danger")
         else:
             new_user = User(username=username, role=role)
             new_user.set_password(password)
             db.session.add(new_user)
             db.session.commit()
-            flash("User added successfully", "success")
+            flash("User added successfully.", "success")
             return redirect(url_for("admin"))
 
     users = User.query.all()
@@ -266,20 +358,20 @@ def admin():
 
 
 @app.route("/delete_user", methods=["POST"])
-@auth.login_required
+@login_required
 def delete_user():
-    if g.current_user.role != "admin":
+    if current_user.role != "admin":
         flash("Unauthorized access!", "danger")
         return redirect(url_for("index"))
 
     user_id = request.form["user_id"]
-    user = User.query.get(user_id)
+    user = db.session.get(User, user_id)
     if user:
         db.session.delete(user)
         db.session.commit()
-        flash("User deleted successfully", "success")
+        flash("User deleted successfully.", "success")
     else:
-        flash("User not found", "error")
+        flash("User not found.", "error")
     return redirect(url_for("admin"))
 
 

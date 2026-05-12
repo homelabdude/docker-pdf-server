@@ -1,18 +1,14 @@
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
-    <title>PDF Organizer - Error</title>
-    <link
-      href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"
-      rel="stylesheet"
-    />
-  </head>
-  <body>
-    <div class="container mt-5">
-      <div class="alert alert-danger" role="alert">{{ error_message }}</div>
-      <a class="btn btn-dark" href="{{ url_for('index') }}">Return Home</a>
-    </div>
-  </body>
-</html>
+{% extends 'base.html' %}
+
+{% block title %}Error — PDF Library{% endblock %}
+
+{% block content %}
+<div style="max-width:600px; margin-top:2rem;">
+  <div class="flash flash-danger">
+    <i class="fa-solid fa-circle-exclamation" style="margin-right:6px;"></i>{{ error_message }}
+  </div>
+  <a href="{{ url_for('index') }}" class="btn-reset" style="margin-top:1rem; display:inline-flex;">
+    <i class="fa-solid fa-arrow-left"></i> Return to library
+  </a>
+</div>
+{% endblock %}
