@@ -1,3 +1,10 @@
+# [1.5.0-beta.7](https://github.com/homelabdude/docker-pdf-server/compare/v1.5.0-beta.6...v1.5.0-beta.7) (2026-05-12)
+
+
+### Bug Fixes
+
+* bump typing-extensions from 4.12.2 to 4.15.0 ([#70](https://github.com/homelabdude/docker-pdf-server/issues/70)) ([32700eb](https://github.com/homelabdude/docker-pdf-server/commit/32700ebb87ca3dd9f0ed0bbd968cd97475493c6d))
+
 # [1.5.0-beta.6](https://github.com/homelabdude/docker-pdf-server/compare/v1.5.0-beta.5...v1.5.0-beta.6) (2026-05-12)
 
 
