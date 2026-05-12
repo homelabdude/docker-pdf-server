@@ -1,9 +1,9 @@
 # Docker PDF Server
 
-![CI Status Badge](https://github.com/ash0ne/docker-pdf-server/actions/workflows/ci.yml/badge.svg)
-![GitHub License](https://img.shields.io/github/license/ash0ne/docker-pdf-server)
-[![Docker Image Version](https://img.shields.io/docker/v/a0ne/docker-pdf-server)](https://hub.docker.com/r/a0ne/docker-pdf-server)
-![Docker Pulls](https://img.shields.io/docker/pulls/a0ne/docker-pdf-server)
+![CI Status Badge](https://github.com/homelabdude/docker-pdf-server/actions/workflows/ci.yml/badge.svg)
+![GitHub License](https://img.shields.io/github/license/homelabdude/docker-pdf-server)
+[![Docker Image Version](https://img.shields.io/docker/v/homelabdude/docker-pdf-server)](https://hub.docker.com/r/a0ne/docker-pdf-server)
+![Docker Pulls](https://img.shields.io/docker/pulls/homelabdude/docker-pdf-server)
 
 Welcome to the Docker PDF Server! This project provides a responsive and ultra-minimalist PDF server running on Docker. 
 Built with Flask and HTML, it offers a no-nonsense, straightforward way to upload, delete, view, search, and serve PDFs.
@@ -18,7 +18,7 @@ it is served as is.
 It is actually functionally similar to any typical client app for a NAS. However, this server brings the convenience of
 browser-based access, allowing for quick viewing and on-the-go reading on any device.
 
-<img src="screenshots/Home.png" alt="Alt text" style="width:70%;">
+<img src="https://raw.githubusercontent.com/homelabdude/docker-pdf-server/refs/heads/main/screenshots/Home.png" alt="Alt text" style="width:70%;">
 
 ## What Docker PDF Server is not
 
