@@ -1,3 +1,10 @@
+# [1.5.0-beta.4](https://github.com/homelabdude/docker-pdf-server/compare/v1.5.0-beta.3...v1.5.0-beta.4) (2026-05-12)
+
+
+### Bug Fixes
+
+* Fix Dockerfile ([#78](https://github.com/homelabdude/docker-pdf-server/issues/78)) ([5a8f443](https://github.com/homelabdude/docker-pdf-server/commit/5a8f4434f77f8ea53a74614d3c6de0a60955c3df))
+
 # [1.5.0-beta.3](https://github.com/homelabdude/docker-pdf-server/compare/v1.5.0-beta.2...v1.5.0-beta.3) (2026-05-12)
 
 
