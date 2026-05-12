@@ -1,3 +1,10 @@
+# [1.5.0-beta.6](https://github.com/homelabdude/docker-pdf-server/compare/v1.5.0-beta.5...v1.5.0-beta.6) (2026-05-12)
+
+
+### Features
+
+* version bumps on Jinja, Markupsafe and SQLAlchemy ([#51](https://github.com/homelabdude/docker-pdf-server/issues/51)) ([829533f](https://github.com/homelabdude/docker-pdf-server/commit/829533fb45cc95ab8bf3621a4fd794a24b48b75c))
+
 # [1.5.0-beta.5](https://github.com/homelabdude/docker-pdf-server/compare/v1.5.0-beta.4...v1.5.0-beta.5) (2026-05-12)
 
 
