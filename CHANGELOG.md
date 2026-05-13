@@ -1,3 +1,20 @@
+# [1.6.0-beta.1](https://github.com/homelabdude/docker-pdf-server/compare/v1.5.0...v1.6.0-beta.1) (2026-05-13)
+
+
+### Bug Fixes
+
+* bump typing-extensions from 4.12.2 to 4.15.0 ([#70](https://github.com/homelabdude/docker-pdf-server/issues/70)) ([32700eb](https://github.com/homelabdude/docker-pdf-server/commit/32700ebb87ca3dd9f0ed0bbd968cd97475493c6d))
+* Fix Dockerfile ([#78](https://github.com/homelabdude/docker-pdf-server/issues/78)) ([5a8f443](https://github.com/homelabdude/docker-pdf-server/commit/5a8f4434f77f8ea53a74614d3c6de0a60955c3df))
+* Update README and add delete user button ([#79](https://github.com/homelabdude/docker-pdf-server/issues/79)) ([3fe0b6f](https://github.com/homelabdude/docker-pdf-server/commit/3fe0b6f97d1d6cf40c236e3274e228b983eabd12))
+* Update to correct URL in semver metadata ([#77](https://github.com/homelabdude/docker-pdf-server/issues/77)) ([aa632f3](https://github.com/homelabdude/docker-pdf-server/commit/aa632f37f21dd6f93dbbbf71b8fe43f0f2e30360))
+
+
+### Features
+
+* Rewrite to ([#76](https://github.com/homelabdude/docker-pdf-server/issues/76)) ([90ee085](https://github.com/homelabdude/docker-pdf-server/commit/90ee0858e7ab79ae6e48cba829dbaecda1f37b33))
+* update dependencies in beta ([c2c7408](https://github.com/homelabdude/docker-pdf-server/commit/c2c74084218ffa2b2582e68a873af095a17d71c8))
+* version bumps on Jinja, Markupsafe and SQLAlchemy ([59c381c](https://github.com/homelabdude/docker-pdf-server/commit/59c381c9216d9c7111f96228a0a02356ab13a229))
+
 # [1.5.0](https://github.com/homelabdude/docker-pdf-server/compare/v1.4.1...v1.5.0) (2026-05-12)
 
 
