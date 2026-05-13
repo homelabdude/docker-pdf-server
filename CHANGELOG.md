@@ -1,9 +1,11 @@
-# [1.5.0-beta.7](https://github.com/homelabdude/docker-pdf-server/compare/v1.5.0-beta.6...v1.5.0-beta.7) (2026-05-12)
+# [1.5.0](https://github.com/homelabdude/docker-pdf-server/compare/v1.4.1...v1.5.0) (2026-05-12)
 
 
-### Bug Fixes
+### Features
 
-* bump typing-extensions from 4.12.2 to 4.15.0 ([#70](https://github.com/homelabdude/docker-pdf-server/issues/70)) ([32700eb](https://github.com/homelabdude/docker-pdf-server/commit/32700ebb87ca3dd9f0ed0bbd968cd97475493c6d))
+* A pretty major rewrite after quite sometime but breaks nothing and should just work with your existing library and logins ([#81](https://github.com/homelabdude/docker-pdf-server/issues/81)) ([9d80280](https://github.com/homelabdude/docker-pdf-server/commit/9d8028082bf07663b41a6c0d426fffee36990838))
+* Update README.md with new repository links ([cc7d096](https://github.com/homelabdude/docker-pdf-server/commit/cc7d09697c8314b7b8ff9f93b0aa3508138a2cd8))
+* version bumps on Jinja, Markupsafe and SQLAlchemy ([#51](https://github.com/homelabdude/docker-pdf-server/issues/51)) ([829533f](https://github.com/homelabdude/docker-pdf-server/commit/829533fb45cc95ab8bf3621a4fd794a24b48b75c))
 
 # [1.5.0-beta.6](https://github.com/homelabdude/docker-pdf-server/compare/v1.5.0-beta.5...v1.5.0-beta.6) (2026-05-12)
 

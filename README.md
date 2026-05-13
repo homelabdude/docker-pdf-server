@@ -1,7 +1,7 @@
 # Docker PDF Server
 
-![CI Status Badge](https://github.com/ash0ne/docker-pdf-server/actions/workflows/ci.yml/badge.svg)
-![GitHub License](https://img.shields.io/github/license/ash0ne/docker-pdf-server)
+![CI Status Badge](https://github.com/homelabdude/docker-pdf-server/actions/workflows/ci.yml/badge.svg)
+![GitHub License](https://img.shields.io/github/license/homelabdude/docker-pdf-server)
 [![Docker Image Version](https://img.shields.io/docker/v/a0ne/docker-pdf-server)](https://hub.docker.com/r/a0ne/docker-pdf-server)
 ![Docker Pulls](https://img.shields.io/docker/pulls/a0ne/docker-pdf-server)
 
@@ -18,7 +18,7 @@ it is served as is.
 It is actually functionally similar to any typical client app for a NAS. However, this server brings the convenience of
 browser-based access, allowing for quick viewing and on-the-go reading on any device.
 
-<img src="screenshots/Home.png" alt="Alt text" style="width:70%;">
+<img src="https://raw.githubusercontent.com/homelabdude/docker-pdf-server/refs/heads/main/screenshots/Home.png" alt="Alt text" style="width:70%;">
 
 ## What Docker PDF Server is not
 
@@ -42,7 +42,7 @@ docker run -e DOCKER_PDF_SERVER_USER=<your-username> \
  -e DOCKER_PDF_SERVER_KEY=<your-random-secret-key> \
  -v /Users/writable/host/path/pdf-library:/app/library/ \
  -v /Users/writable/host/path/user-db:/app/instance/ \
- -p 3040:5000 ghcr.io/ash0ne/docker-pdf-server:latest
+ -p 3040:5000 ghcr.io/homelabdude/docker-pdf-server:latest
 ```
 
 You can then access the app by going to `http://localhost:3040`
