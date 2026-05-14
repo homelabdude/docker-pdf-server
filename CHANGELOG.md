@@ -1,3 +1,10 @@
+# [1.6.0-beta.2](https://github.com/homelabdude/docker-pdf-server/compare/v1.6.0-beta.1...v1.6.0-beta.2) (2026-05-14)
+
+
+### Features
+
+* Adding EPUB support ([9cd4ab0](https://github.com/homelabdude/docker-pdf-server/commit/9cd4ab098f6e11fee601eb280fb2d992028eaf3c))
+
 # [1.6.0-beta.1](https://github.com/homelabdude/docker-pdf-server/compare/v1.5.0...v1.6.0-beta.1) (2026-05-13)
 
 
