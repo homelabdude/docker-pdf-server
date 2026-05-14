@@ -6,14 +6,16 @@
 ![Docker Pulls](https://img.shields.io/docker/pulls/a0ne/docker-pdf-server)
 
 Welcome to the Docker PDF Server! This project provides a responsive and ultra-minimalist PDF server running on Docker. 
-Built with Flask and HTML, it offers a no-nonsense, straightforward way to upload, delete, view, search, and serve PDFs.
+Built with Flask and HTML, it offers a no-nonsense, straightforward way to upload, delete, view, search, and serve PDFs and EPUBs.
+
+> **EPUB support** is available from the 1.6.0 beta releases onwards. Uploaded EPUB files are automatically converted to PDF before storing.
 
 ## Why Docker PDF Server?
 
 I developed this server out of a personal need for a quick, e-book-like viewing experience for my PDF library. Unlike
 document organizers like Paperless-ngx or eBook focused apps like Calibre-web, Kavita etc., this server focuses solely
-on delivering a simple way to upload, browse, search, and access PDF e-books for reading. When you click on a PDF,
-it is served as is.
+on delivering a simple way to upload, browse, search, and access PDF e-books for reading. When you click on a file,
+it is served as is. From 1.6.0 betas, you can upload both PDF and EPUB files.
 
 It is actually functionally similar to any typical client app for a NAS. However, this server brings the convenience of
 browser-based access, allowing for quick viewing and on-the-go reading on any device.

@@ -47,7 +47,44 @@
     {% block content %}{% endblock %}
   </div>
 
+  <div id="confirmModal" class="modal-overlay" style="display:none" role="dialog" aria-modal="true">
+    <div class="modal-box">
+      <p id="confirmMsg" class="modal-msg"></p>
+      <div class="modal-actions">
+        <button class="btn-modal-cancel" id="confirmCancel">Cancel</button>
+        <button class="btn-modal-ok" id="confirmOk">Confirm</button>
+      </div>
+    </div>
+  </div>
+
   <script>
+    function showConfirm(message, onConfirm, okLabel, danger) {
+      var modal = document.getElementById('confirmModal');
+      var okBtn = document.getElementById('confirmOk');
+      var cancelBtn = document.getElementById('confirmCancel');
+      document.getElementById('confirmMsg').textContent = message;
+      okBtn.textContent = okLabel || 'Confirm';
+      okBtn.dataset.danger = danger ? '1' : '';
+      modal.style.display = 'flex';
+
+      function cleanup() {
+        modal.style.display = 'none';
+        okBtn.removeEventListener('click', handleOk);
+        cancelBtn.removeEventListener('click', handleCancel);
+        modal.removeEventListener('click', handleOverlay);
+        document.removeEventListener('keydown', handleKey);
+      }
+      function handleOk() { cleanup(); onConfirm(); }
+      function handleCancel() { cleanup(); }
+      function handleOverlay(e) { if (e.target === modal) cleanup(); }
+      function handleKey(e) { if (e.key === 'Escape') cleanup(); }
+
+      okBtn.addEventListener('click', handleOk);
+      cancelBtn.addEventListener('click', handleCancel);
+      modal.addEventListener('click', handleOverlay);
+      document.addEventListener('keydown', handleKey);
+    }
+
     function toggleTheme() {
       var html = document.documentElement;
       var isDark = html.classList.contains('dark');

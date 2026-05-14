@@ -34,7 +34,7 @@ UPLOAD_FOLDER = "library"
 APP_KEY = os.environ.get("DOCKER_PDF_SERVER_KEY", "super_secret_key")
 APP_USER = os.environ.get("DOCKER_PDF_SERVER_USER", "admin")
 APP_PASSWORD = os.environ.get("DOCKER_PDF_SERVER_PASSWORD", "password")
-ALLOWED_EXTENSIONS = {"pdf"}
+ALLOWED_EXTENSIONS = {"pdf", "epub"}
 
 app = Flask(__name__)
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
@@ -287,8 +287,28 @@ def upload_file():
         return redirect(request.url)
     if file and allowed_file(file.filename):
         filename = file.filename
+        ext = filename.rsplit(".", 1)[1].lower()
         file_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
         file.save(file_path)
+
+        if ext == "epub":
+            pdf_filename = filename.rsplit(".", 1)[0] + ".pdf"
+            pdf_path = os.path.join(app.config["UPLOAD_FOLDER"], pdf_filename)
+            try:
+                doc = fitz.open(file_path)
+                pdf_bytes = doc.convert_to_pdf()
+                doc.close()
+                with open(pdf_path, "wb") as f:
+                    f.write(pdf_bytes)
+            except Exception:
+                os.remove(file_path)
+                return render_template(
+                    "error.html",
+                    error_message="Could not convert EPUB to PDF. The file may be malformed.",
+                )
+            os.remove(file_path)
+            filename = pdf_filename
+            file_path = pdf_path
 
         try:
             thumbnail_path = os.path.join(app.config["UPLOAD_FOLDER"], filename + ".png")

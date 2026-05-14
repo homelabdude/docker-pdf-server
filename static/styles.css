@@ -634,6 +634,74 @@ body {
   font-size: 0.9rem;
 }
 
+/* ── Confirm modal ── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-hover);
+  padding: 1.5rem;
+  max-width: 360px;
+  width: calc(100% - 2rem);
+}
+
+.modal-msg {
+  margin: 0 0 1.25rem;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  line-height: 1.55;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 0.6rem;
+  justify-content: flex-end;
+}
+
+.btn-modal-cancel,
+.btn-modal-ok {
+  padding: 0.45rem 1rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.875rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: opacity var(--transition), background var(--transition);
+}
+
+.btn-modal-cancel {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-primary);
+}
+
+.btn-modal-cancel:hover {
+  background: var(--border);
+}
+
+.btn-modal-ok {
+  border: none;
+  background: var(--accent);
+  color: #fff;
+}
+
+.btn-modal-ok[data-danger="1"] {
+  background: var(--danger);
+}
+
+.btn-modal-ok:hover {
+  opacity: 0.85;
+}
+
 /* ── Dark mode overrides for colour-specific components ── */
 .dark .flash-success,
 .dark:not(.light) .flash-success {
