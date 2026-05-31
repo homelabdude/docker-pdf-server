@@ -1,3 +1,10 @@
+# [1.6.0-beta.4](https://github.com/homelabdude/docker-pdf-server/compare/v1.6.0-beta.3...v1.6.0-beta.4) (2026-05-31)
+
+
+### Bug Fixes
+
+* implement ProxyFix to trust the X-Forwarded-Host/X-Forwarded-Proto headers from proxy ([95ae3a3](https://github.com/homelabdude/docker-pdf-server/commit/95ae3a3e4d60b88a701517a65fc7a71d507a4aad))
+
 # [1.6.0-beta.3](https://github.com/homelabdude/docker-pdf-server/compare/v1.6.0-beta.2...v1.6.0-beta.3) (2026-05-31)
 
 
