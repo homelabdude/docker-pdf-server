@@ -5,7 +5,7 @@ Flask-Login==0.6.3
 flask-paginate==2024.4.12
 Flask-SQLAlchemy==3.1.1
 Flask-WTF==1.2.2
-gunicorn==22.0.0
+gunicorn==26.0.0
 itsdangerous==2.2.0
 Jinja2==3.1.6
 MarkupSafe==3.0.3
