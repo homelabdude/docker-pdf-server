@@ -1,3 +1,10 @@
+# [1.6.0-beta.3](https://github.com/homelabdude/docker-pdf-server/compare/v1.6.0-beta.2...v1.6.0-beta.3) (2026-05-31)
+
+
+### Bug Fixes
+
+* perfomance fix to massively reduce the size of the generated thumbnails ([97668a2](https://github.com/homelabdude/docker-pdf-server/commit/97668a2e3dfd298bd70b8247a8d1aad8dc696555))
+
 # [1.6.0-beta.2](https://github.com/homelabdude/docker-pdf-server/compare/v1.6.0-beta.1...v1.6.0-beta.2) (2026-05-14)
 
 
