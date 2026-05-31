@@ -10,7 +10,7 @@ itsdangerous==2.2.0
 Jinja2==3.1.6
 MarkupSafe==3.0.3
 packaging==24.2
-SQLAlchemy==2.0.44
+SQLAlchemy==2.0.50
 typing_extensions==4.15.0
 PyMuPDF==1.27.2.3
 WTForms==3.2.1
