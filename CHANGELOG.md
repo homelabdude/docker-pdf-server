@@ -1,3 +1,11 @@
+# [1.6.0](https://github.com/homelabdude/docker-pdf-server/compare/v1.5.0...v1.6.0) (2026-05-31)
+
+
+### Features
+
+* Add workflow_dispatch trigger to CI workflow ([308c20c](https://github.com/homelabdude/docker-pdf-server/commit/308c20c7494e5065759277cefe553e66c98070fb))
+* Version updates and release to add EPUB support + optimised thumbnail generation ([#94](https://github.com/homelabdude/docker-pdf-server/issues/94)) ([ae42e56](https://github.com/homelabdude/docker-pdf-server/commit/ae42e56ae0552d646988dea655b9b828728fb594))
+
 # [1.6.0-beta.3](https://github.com/homelabdude/docker-pdf-server/compare/v1.6.0-beta.2...v1.6.0-beta.3) (2026-05-31)
 
 
