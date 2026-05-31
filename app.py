@@ -34,7 +34,7 @@ UPLOAD_FOLDER = "library"
 APP_KEY = os.environ.get("DOCKER_PDF_SERVER_KEY", "super_secret_key")
 APP_USER = os.environ.get("DOCKER_PDF_SERVER_USER", "admin")
 APP_PASSWORD = os.environ.get("DOCKER_PDF_SERVER_PASSWORD", "password")
-ALLOWED_EXTENSIONS = {"pdf"}
+ALLOWED_EXTENSIONS = {"pdf", "epub"}
 
 app = Flask(__name__)
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
@@ -118,8 +118,8 @@ def safe_redirect(target):
 def generate_thumbnail(pdf_path, thumbnail_path):
     doc = fitz.open(pdf_path)
     page = doc[0]
-    pix = page.get_pixmap(matrix=fitz.Matrix(150 / 72, 150 / 72))
-    pix.save(thumbnail_path)
+    pix = page.get_pixmap(matrix=fitz.Matrix(0.25, 0.25))
+    pix.save(thumbnail_path, jpg_quality=70)
     doc.close()
 
 
@@ -130,27 +130,27 @@ def generate_thumbnail(pdf_path, thumbnail_path):
 
 _CACHE_TTL = 15.0
 _cache_lock = threading.Lock()
-_cache: dict = {"stamp": 0.0, "pdfs": [], "pngs": set()}
+_cache: dict = {"stamp": 0.0, "pdfs": [], "thumbs": set()}
 
 
 def _scan_library(folder: str) -> tuple[list[tuple[str, float]], set[str]]:
-    """Return ([(name, mtime), ...], {png_names}) from a single scandir pass."""
+    """Return ([(name, mtime), ...], {thumb_names}) from a single scandir pass."""
     now = time.monotonic()
     with _cache_lock:
         if now - _cache["stamp"] < _CACHE_TTL:
-            return _cache["pdfs"], _cache["pngs"]
+            return _cache["pdfs"], _cache["thumbs"]
         pdfs: list[tuple[str, float]] = []
-        pngs: set[str] = set()
+        thumbs: set[str] = set()
         with os.scandir(folder) as it:
             for entry in it:
                 if not entry.is_file():
                     continue
                 if entry.name.endswith(".pdf"):
                     pdfs.append((entry.name, entry.stat().st_mtime))
-                elif entry.name.endswith(".png"):
-                    pngs.add(entry.name)
-        _cache.update(stamp=now, pdfs=pdfs, pngs=pngs)
-        return pdfs, pngs
+                elif entry.name.endswith((".jpg", ".png")):
+                    thumbs.add(entry.name)
+        _cache.update(stamp=now, pdfs=pdfs, thumbs=thumbs)
+        return pdfs, thumbs
 
 
 def _invalidate_cache() -> None:
@@ -206,7 +206,7 @@ def index():
     sort_order = request.args.get("sort", "newest")
     upload_folder = app.config["UPLOAD_FOLDER"]
 
-    pdf_entries, png_set = _scan_library(upload_folder)
+    pdf_entries, thumb_set = _scan_library(upload_folder)
     reverse = sort_order != "oldest"
     pdf_files = [n for n, _ in sorted(pdf_entries, key=lambda x: x[1], reverse=reverse)]
 
@@ -217,7 +217,7 @@ def index():
     pagination = Pagination(page=page, per_page=per_page, total=total_files)
 
     files = [
-        {"file": f, "thumbnail": f"{f}.png" if f"{f}.png" in png_set else "pdf-file.png"}
+        {"file": f, "thumbnail": f"{f}.jpg" if f"{f}.jpg" in thumb_set else (f"{f}.png" if f"{f}.png" in thumb_set else "pdf-file.png")}
         for f in pdf_files_slice
     ]
 
@@ -240,7 +240,7 @@ def search():
     sort_order = request.args.get("sort", "newest")
     upload_folder = app.config["UPLOAD_FOLDER"]
 
-    pdf_entries, png_set = _scan_library(upload_folder)
+    pdf_entries, thumb_set = _scan_library(upload_folder)
     query_lower = query.lower()
     reverse = sort_order != "oldest"
     pdf_files = [
@@ -258,7 +258,7 @@ def search():
     pagination = Pagination(page=page, per_page=per_page, total=total_files)
 
     files = [
-        {"file": f, "thumbnail": f"{f}.png" if f"{f}.png" in png_set else "pdf-file.png"}
+        {"file": f, "thumbnail": f"{f}.jpg" if f"{f}.jpg" in thumb_set else (f"{f}.png" if f"{f}.png" in thumb_set else "pdf-file.png")}
         for f in pdf_files_slice
     ]
 
@@ -287,11 +287,31 @@ def upload_file():
         return redirect(request.url)
     if file and allowed_file(file.filename):
         filename = file.filename
+        ext = filename.rsplit(".", 1)[1].lower()
         file_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
         file.save(file_path)
 
+        if ext == "epub":
+            pdf_filename = filename.rsplit(".", 1)[0] + ".pdf"
+            pdf_path = os.path.join(app.config["UPLOAD_FOLDER"], pdf_filename)
+            try:
+                doc = fitz.open(file_path)
+                pdf_bytes = doc.convert_to_pdf()
+                doc.close()
+                with open(pdf_path, "wb") as f:
+                    f.write(pdf_bytes)
+            except Exception:
+                os.remove(file_path)
+                return render_template(
+                    "error.html",
+                    error_message="Could not convert EPUB to PDF. The file may be malformed.",
+                )
+            os.remove(file_path)
+            filename = pdf_filename
+            file_path = pdf_path
+
         try:
-            thumbnail_path = os.path.join(app.config["UPLOAD_FOLDER"], filename + ".png")
+            thumbnail_path = os.path.join(app.config["UPLOAD_FOLDER"], filename + ".jpg")
             generate_thumbnail(file_path, thumbnail_path)
         except Exception:
             error_message = (
@@ -321,9 +341,10 @@ def delete_file():
     file_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
     if os.path.exists(file_path):
         os.remove(file_path)
-        thumbnail_path = os.path.join(app.config["UPLOAD_FOLDER"], filename + ".png")
-        if os.path.exists(thumbnail_path):
-            os.remove(thumbnail_path)
+        for thumb_ext in (".jpg", ".png"):
+            thumbnail_path = os.path.join(app.config["UPLOAD_FOLDER"], filename + thumb_ext)
+            if os.path.exists(thumbnail_path):
+                os.remove(thumbnail_path)
         _invalidate_cache()
         flash("File deleted successfully.", "success")
     else:

@@ -52,10 +52,9 @@
             <td><strong>{{ user.username }}</strong></td>
             <td><span class="role-badge role-{{ user.role }}">{{ user.role }}</span></td>
             <td>
-              <form method="POST" action="{{ url_for('delete_user') }}" style="display:inline"
-                onsubmit="return confirm('Delete user {{ user.username }}?');">
+              <form method="POST" action="{{ url_for('delete_user') }}" style="display:inline">
                 <input type="hidden" name="user_id" value="{{ user.id }}" />
-                <button type="submit" class="btn-delete-row">
+                <button type="button" class="btn-delete-row" onclick="confirmDeleteUser(this, '{{ user.username }}')">
                   <i class="fa-solid fa-trash"></i> Delete
                 </button>
               </form>
@@ -74,4 +73,14 @@
 
   </div>
 
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function confirmDeleteUser(btn, username) {
+    showConfirm('Delete user "' + username + '"?', function() {
+      btn.closest('form').submit();
+    }, 'Delete', true);
+  }
+</script>
 {% endblock %}

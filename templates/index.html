@@ -15,10 +15,10 @@
     <form action="/upload" method="post" enctype="multipart/form-data" id="uploadForm" style="display:contents">
       <label class="upload-label" for="uploadFileInput" id="uploadLabel">
         <i class="fa-solid fa-arrow-up-from-bracket"></i>
-        <span id="uploadLabelText">Upload PDF</span>
+        <span id="uploadLabelText">Upload PDF / EPUB</span>
       </label>
-      <input type="file" id="uploadFileInput" name="file" accept=".pdf" required onchange="onFileSelected(this)" />
-      <button class="btn-upload-submit" type="submit" id="uploadSubmitBtn" style="display:none">
+      <input type="file" id="uploadFileInput" name="file" accept=".pdf,.epub" required onchange="onFileSelected(this)" />
+      <button class="btn-upload-submit" type="button" id="uploadSubmitBtn" style="display:none" onclick="confirmUpload()">
         <i class="fa-solid fa-check"></i> Upload
       </button>
     </form>
@@ -54,10 +54,9 @@
         </div>
       </a>
       {% if current_user.role in ["admin", "maintainer"] %}
-      <form action="{{ url_for('delete_file') }}" method="post"
-        onsubmit="return confirmDelete('{{ file.file }}');">
+      <form action="{{ url_for('delete_file') }}" method="post">
         <input type="hidden" name="filename" value="{{ file.file }}" />
-        <button type="submit" class="btn-delete" title="Delete">
+        <button type="button" class="btn-delete" title="Delete" onclick="confirmDelete(this, '{{ file.file }}')">
           <i class="fa-solid fa-trash"></i>
         </button>
       </form>
@@ -148,7 +147,7 @@
       label.classList.add('has-file');
       submitBtn.style.display = 'inline-flex';
     } else {
-      labelText.textContent = 'Upload PDF';
+      labelText.textContent = 'Upload PDF / EPUB';
       label.classList.remove('has-file');
       submitBtn.style.display = 'none';
     }
@@ -160,8 +159,23 @@
     return true;
   }
 
-  function confirmDelete(fileName) {
-    return confirm('Delete "' + fileName + '"?');
+  function confirmUpload() {
+    var input = document.getElementById('uploadFileInput');
+    if (input.files && input.files[0] && input.files[0].name.toLowerCase().endsWith('.epub')) {
+      showConfirm(
+        'EPUB files will be converted to PDF before storing. Formatting may vary depending on the source file - continue?',
+        function() { document.getElementById('uploadForm').submit(); },
+        'Upload'
+      );
+    } else {
+      document.getElementById('uploadForm').submit();
+    }
+  }
+
+  function confirmDelete(btn, fileName) {
+    showConfirm('Delete "' + fileName + '"?', function() {
+      btn.closest('form').submit();
+    }, 'Delete', true);
   }
 </script>
 {% endblock %}
