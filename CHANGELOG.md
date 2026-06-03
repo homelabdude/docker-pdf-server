@@ -1,3 +1,10 @@
+## [1.6.1](https://github.com/homelabdude/docker-pdf-server/compare/v1.6.0...v1.6.1) (2026-06-03)
+
+
+### Bug Fixes
+
+* A fix to solve auth issues if you are running behind a proxy ([855ab6d](https://github.com/homelabdude/docker-pdf-server/commit/855ab6d84ef9a3d9d3852b0c8db5b9e3f2f76b9f))
+
 # [1.7.0-beta.1](https://github.com/homelabdude/docker-pdf-server/compare/v1.6.0...v1.7.0-beta.1) (2026-05-31)
 
 
