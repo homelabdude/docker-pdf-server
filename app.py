@@ -28,6 +28,7 @@ from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, SelectField, SubmitField
 from wtforms.validators import DataRequired
 from flask_paginate import Pagination
+from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import generate_password_hash, check_password_hash
 
 UPLOAD_FOLDER = "library"
@@ -37,6 +38,7 @@ APP_PASSWORD = os.environ.get("DOCKER_PDF_SERVER_PASSWORD", "password")
 ALLOWED_EXTENSIONS = {"pdf", "epub"}
 
 app = Flask(__name__)
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///users.db"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
