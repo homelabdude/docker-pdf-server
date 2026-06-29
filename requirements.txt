@@ -12,6 +12,6 @@ MarkupSafe==3.0.3
 packaging==26.2
 SQLAlchemy==2.0.50
 typing_extensions==4.15.0
-PyMuPDF==1.27.2.3
+PyMuPDF==1.28.0
 WTForms==3.2.1
 Werkzeug==3.1.8
