@@ -1,3 +1,11 @@
+# [1.7.0](https://github.com/homelabdude/docker-pdf-server/compare/v1.6.1...v1.7.0) (2026-09-26)
+
+
+### Features
+
+* Beta ([#115](https://github.com/homelabdude/docker-pdf-server/issues/115)) ([1fee13d](https://github.com/homelabdude/docker-pdf-server/commit/1fee13d9cad444d987704157efb7585fc947a831))
+* Clean up blank lines in README ([3a1880b](https://github.com/homelabdude/docker-pdf-server/commit/3a1880b490a80f59a0faae83848a796576333971))
+
 # [1.7.0-beta.4](https://github.com/homelabdude/docker-pdf-server/compare/v1.7.0-beta.3...v1.7.0-beta.4) (2026-09-26)
 
 
