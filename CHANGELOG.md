@@ -1,9 +1,25 @@
+# [1.7.0-beta.4](https://github.com/homelabdude/docker-pdf-server/compare/v1.7.0-beta.3...v1.7.0-beta.4) (2026-09-26)
+
+
+### Bug Fixes
+
+* A fix to solve auth issues if you are running behind a proxy ([855ab6d](https://github.com/homelabdude/docker-pdf-server/commit/855ab6d84ef9a3d9d3852b0c8db5b9e3f2f76b9f))
+
+# [1.7.0-beta.3](https://github.com/homelabdude/docker-pdf-server/compare/v1.7.0-beta.2...v1.7.0-beta.3) (2026-09-26)
+
+
+### Features
+
+* bump flask and MuPDF ([#114](https://github.com/homelabdude/docker-pdf-server/issues/114)) ([d69b5a7](https://github.com/homelabdude/docker-pdf-server/commit/d69b5a77d09c5888c5746585977affe36f88a0e8))
+
+# [1.7.0-beta.2](https://github.com/homelabdude/docker-pdf-server/compare/v1.7.0-beta.1...v1.7.0-beta.2) (2026-07-17)
 ## [1.6.1](https://github.com/homelabdude/docker-pdf-server/compare/v1.6.0...v1.6.1) (2026-06-03)
 
 
 ### Bug Fixes
 
 * A fix to solve auth issues if you are running behind a proxy ([855ab6d](https://github.com/homelabdude/docker-pdf-server/commit/855ab6d84ef9a3d9d3852b0c8db5b9e3f2f76b9f))
+* Login broken when running behind a reverse proxy ([b2d9d8c](https://github.com/homelabdude/docker-pdf-server/commit/b2d9d8c2a188411b101459a0fea89c7b97b92136))
 
 # [1.7.0-beta.1](https://github.com/homelabdude/docker-pdf-server/compare/v1.6.0...v1.7.0-beta.1) (2026-05-31)
 

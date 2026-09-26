@@ -49,8 +49,6 @@ login_manager = LoginManager(app)
 login_manager.login_view = "login"
 login_manager.login_message = None
 
-app.app_context().push()
-
 
 class EnvAdminUser(UserMixin):
     """Represents the env-var-configured admin; never stored in the DB."""
@@ -408,7 +406,8 @@ def favicon():
 
 
 if __name__ == "__main__":
-    db.create_all()
+    with app.app_context():
+        db.create_all()
     app.run(port=3030, debug=False)
 else:
     with app.app_context():
