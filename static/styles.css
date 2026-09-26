@@ -565,6 +565,51 @@ body {
   opacity: 0.85;
 }
 
+.btn-primary-dark:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ── Thumbnail job ── */
+.thumb-actions {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.thumb-progress {
+  margin-top: 1.25rem;
+}
+
+.progress-track {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  width: 0;
+  background: var(--accent);
+  transition: width 0.3s ease;
+}
+
+.progress-text {
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.progress-failed {
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--danger);
+}
+
 .admin-table {
   width: 100%;
   border-collapse: collapse;

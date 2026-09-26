@@ -1,3 +1,5 @@
+import fcntl
+import json
 import os
 import math
 import time
@@ -156,6 +158,75 @@ def _scan_library(folder: str) -> tuple[list[tuple[str, float]], set[str]]:
 def _invalidate_cache() -> None:
     with _cache_lock:
         _cache["stamp"] = 0.0
+
+
+# ── Bulk thumbnail job ───────────────────────────────────────────────────────
+# Runs in a background thread so the request returns immediately; the admin
+# page polls /admin/thumbnails/status for progress. State lives on disk so
+# every gunicorn worker sees the same job: progress in a JSON file, and "is a
+# job running" as an flock on a lock file. The OS drops the flock if the
+# worker dies, so a crashed job never looks like it is still running.
+
+_THUMB_STATE_PATH = os.path.join(app.instance_path, "thumbnails.json")
+_THUMB_LOCK_PATH = os.path.join(app.instance_path, "thumbnails.lock")
+_THUMB_IDLE = {
+    "mode": None, "total": 0, "done": 0, "generated": 0, "failed": [], "current": None,
+}
+
+
+def _try_lock_thumbnail_job():
+    """Return an open, exclusively-locked file object, or None if a job holds it."""
+    os.makedirs(app.instance_path, exist_ok=True)
+    f = open(_THUMB_LOCK_PATH, "a")
+    try:
+        fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        f.close()
+        return None
+    return f
+
+
+def _write_thumbnail_state(state: dict) -> None:
+    tmp = _THUMB_STATE_PATH + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(state, f)
+    os.replace(tmp, _THUMB_STATE_PATH)
+
+
+def _read_thumbnail_state() -> dict:
+    try:
+        with open(_THUMB_STATE_PATH) as f:
+            state = json.load(f)
+    except (OSError, ValueError):
+        state = dict(_THUMB_IDLE)
+    lock = _try_lock_thumbnail_job()
+    if lock:
+        lock.close()
+    state["running"] = lock is None
+    return state
+
+
+def _run_thumbnail_job(lock, folder: str, pdfs: list[str], mode: str) -> None:
+    state = {**_THUMB_IDLE, "mode": mode, "total": len(pdfs), "failed": []}
+    try:
+        for name in pdfs:
+            state["current"] = name
+            _write_thumbnail_state(state)
+            pdf_path = os.path.join(folder, name)
+            try:
+                generate_thumbnail(pdf_path, pdf_path + ".jpg")
+                # The .jpg takes precedence, so any legacy .png is now stale.
+                if mode == "all" and os.path.exists(pdf_path + ".png"):
+                    os.remove(pdf_path + ".png")
+                state["generated"] += 1
+            except Exception:
+                state["failed"].append(name)
+            state["done"] += 1
+            _invalidate_cache()
+        state["current"] = None
+        _write_thumbnail_state(state)
+    finally:
+        lock.close()  # releases the flock
 
 
 @app.route("/", methods=["GET", "POST"])
@@ -396,6 +467,46 @@ def delete_user():
     return redirect(url_for("admin"))
 
 
+@app.route("/admin/thumbnails", methods=["POST"])
+@login_required
+def start_thumbnail_job():
+    if current_user.role != "admin":
+        return jsonify({"error": "Unauthorized"}), 403
+
+    mode = request.form.get("mode")
+    if mode not in ("missing", "all"):
+        return jsonify({"error": "Invalid mode"}), 400
+
+    lock = _try_lock_thumbnail_job()
+    if lock is None:
+        return jsonify({"error": "A thumbnail job is already running"}), 409
+
+    folder = app.config["UPLOAD_FOLDER"]
+    with os.scandir(folder) as it:
+        names = {e.name for e in it if e.is_file()}
+    pdfs = sorted(n for n in names if n.endswith(".pdf"))
+    if mode == "missing":
+        pdfs = [n for n in pdfs if f"{n}.jpg" not in names and f"{n}.png" not in names]
+
+    # Write the fresh state before responding so no poll sees the previous job.
+    _write_thumbnail_state({**_THUMB_IDLE, "mode": mode, "total": len(pdfs)})
+    if pdfs:
+        threading.Thread(
+            target=_run_thumbnail_job, args=(lock, folder, pdfs, mode), daemon=True
+        ).start()
+    else:
+        lock.close()
+    return thumbnail_job_status()
+
+
+@app.route("/admin/thumbnails/status")
+@login_required
+def thumbnail_job_status():
+    if current_user.role != "admin":
+        return jsonify({"error": "Unauthorized"}), 403
+    return jsonify(_read_thumbnail_state())
+
+
 @app.route("/favicon.ico")
 def favicon():
     return send_from_directory(
@@ -405,10 +516,17 @@ def favicon():
     )
 
 
+def init_db():
+    # Every gunicorn worker imports this module at the same time; serialise
+    # create_all() so they don't all race to create the tables on a fresh DB.
+    os.makedirs(app.instance_path, exist_ok=True)
+    with open(os.path.join(app.instance_path, "db-init.lock"), "a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        with app.app_context():
+            db.create_all()
+
+
+init_db()
+
 if __name__ == "__main__":
-    with app.app_context():
-        db.create_all()
     app.run(port=3030, debug=False)
-else:
-    with app.app_context():
-        db.create_all()
