@@ -1,3 +1,9 @@
+# [1.7.0-beta.3](https://github.com/homelabdude/docker-pdf-server/compare/v1.7.0-beta.2...v1.7.0-beta.3) (2026-09-26)
+
+
+### Features
+
+* bump flask and MuPDF ([#114](https://github.com/homelabdude/docker-pdf-server/issues/114)) ([d69b5a7](https://github.com/homelabdude/docker-pdf-server/commit/d69b5a77d09c5888c5746585977affe36f88a0e8))
 
 # [1.7.0-beta.2](https://github.com/homelabdude/docker-pdf-server/compare/v1.7.0-beta.1...v1.7.0-beta.2) (2026-07-17)
 
