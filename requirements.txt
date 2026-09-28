@@ -9,7 +9,7 @@ gunicorn==26.0.0
 itsdangerous==2.2.0
 Jinja2==3.1.6
 MarkupSafe==3.0.3
-packaging==26.2
+packaging==26.3
 SQLAlchemy==2.0.51
 typing_extensions==4.15.0
 PyMuPDF==1.28.0
