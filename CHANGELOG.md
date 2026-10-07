@@ -1,3 +1,10 @@
+# [1.9.0-beta.2](https://github.com/homelabdude/docker-pdf-server/compare/v1.9.0-beta.1...v1.9.0-beta.2) (2026-10-07)
+
+
+### Features
+
+* adding OIDC ([cf7f8fe](https://github.com/homelabdude/docker-pdf-server/commit/cf7f8feafaae2871fda42882d59d4878c86e05f4))
+
 # [1.9.0-beta.1](https://github.com/homelabdude/docker-pdf-server/compare/v1.8.0...v1.9.0-beta.1) (2026-10-07)
 
 
