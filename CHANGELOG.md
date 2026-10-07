@@ -1,3 +1,10 @@
+# [1.8.0](https://github.com/homelabdude/docker-pdf-server/compare/v1.7.0...v1.8.0) (2026-10-07)
+
+
+### Features
+
+* Version bumps and UI enhancements ([cce05a6](https://github.com/homelabdude/docker-pdf-server/commit/cce05a64543821ceb1eeb96ed388c2ca4aea8fe9))
+
 # [1.8.0-beta.3](https://github.com/homelabdude/docker-pdf-server/compare/v1.8.0-beta.2...v1.8.0-beta.3) (2026-10-07)
 
 
