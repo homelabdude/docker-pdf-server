@@ -13,6 +13,7 @@
 
     {% if current_user.role in ["admin", "maintainer"] %}
     <form action="/upload" method="post" enctype="multipart/form-data" id="uploadForm" style="display:contents">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
       <label class="upload-label" for="uploadFileInput" id="uploadLabel">
         <i class="fa-solid fa-arrow-up-from-bracket"></i>
         <span id="uploadLabelText">Upload PDF / EPUB</span>
@@ -55,6 +56,7 @@
       </a>
       {% if current_user.role in ["admin", "maintainer"] %}
       <form action="{{ url_for('delete_file') }}" method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
         <input type="hidden" name="filename" value="{{ file.file }}" />
         <button type="button" class="btn-delete" title="Delete" onclick="confirmDelete(this, '{{ file.file }}')">
           <i class="fa-solid fa-trash"></i>

@@ -2,11 +2,13 @@ import fcntl
 import json
 import os
 import math
+import secrets
 import time
 import threading
 from urllib.parse import urlparse, urljoin
 
 import fitz  # PyMuPDF
+from authlib.integrations.flask_client import OAuth
 from flask import (
     Flask,
     render_template,
@@ -16,6 +18,7 @@ from flask import (
     send_from_directory,
     flash,
     jsonify,
+    session,
 )
 from flask_login import (
     LoginManager,
@@ -27,8 +30,11 @@ from flask_login import (
 )
 from flask_sqlalchemy import SQLAlchemy
 from flask_wtf import FlaskForm
+from flask_wtf.csrf import CSRFProtect
+from sqlalchemy import func, inspect, text
+from sqlalchemy.exc import IntegrityError
 from wtforms import StringField, PasswordField, SelectField, SubmitField
-from wtforms.validators import DataRequired
+from wtforms.validators import DataRequired, Optional
 from flask_paginate import Pagination
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -38,6 +44,29 @@ APP_KEY = os.environ.get("DOCKER_PDF_SERVER_KEY", "super_secret_key")
 APP_USER = os.environ.get("DOCKER_PDF_SERVER_USER", "admin")
 APP_PASSWORD = os.environ.get("DOCKER_PDF_SERVER_PASSWORD", "password")
 ALLOWED_EXTENSIONS = {"pdf", "epub"}
+ROLES = [("reader", "Reader"), ("admin", "Admin"), ("maintainer", "Maintainer")]
+
+
+def _env_bool(name, default=False):
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return value.strip().lower() in ("1", "true", "yes", "on")
+
+
+# ── OIDC (optional) ──────────────────────────────────────────────────────────
+# Enabled when client ID, secret and issuer are all set.
+OIDC_CLIENT_ID = os.environ.get("OIDC_CLIENT_ID")
+OIDC_CLIENT_SECRET = os.environ.get("OIDC_CLIENT_SECRET")
+OIDC_ISSUER = os.environ.get("OIDC_ISSUER")
+OIDC_REDIRECT_URI = os.environ.get("OIDC_REDIRECT_URI")  # default: <app>/login/oidc/callback
+OIDC_SCOPES = os.environ.get("OIDC_SCOPES", "openid email profile")
+OIDC_PROVIDER_NAME = os.environ.get("OIDC_PROVIDER_NAME", "SSO")
+OIDC_AUTO_CREATE_USERS = _env_bool("OIDC_AUTO_CREATE_USERS")
+OIDC_USERNAME_CLAIM = os.environ.get("OIDC_USERNAME_CLAIM", "preferred_username")
+OIDC_EMAIL_CLAIM = os.environ.get("OIDC_EMAIL_CLAIM", "email")
+OIDC_NAME_CLAIM = os.environ.get("OIDC_NAME_CLAIM", "name")
+OIDC_ENABLED = bool(OIDC_CLIENT_ID and OIDC_CLIENT_SECRET and OIDC_ISSUER)
 
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
@@ -45,11 +74,28 @@ app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///users.db"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["SECRET_KEY"] = APP_KEY
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+# Off by default so plain-HTTP LAN deployments keep working; enable behind HTTPS.
+app.config["SESSION_COOKIE_SECURE"] = _env_bool("SESSION_COOKIE_SECURE")
+# Tokens last as long as the session, so a library tab left open still works.
+app.config["WTF_CSRF_TIME_LIMIT"] = None
 
+csrf = CSRFProtect(app)
 db = SQLAlchemy(app)
 login_manager = LoginManager(app)
 login_manager.login_view = "login"
 login_manager.login_message = None
+
+oauth = OAuth(app)
+if OIDC_ENABLED:
+    oauth.register(
+        "oidc",
+        client_id=OIDC_CLIENT_ID,
+        client_secret=OIDC_CLIENT_SECRET,
+        server_metadata_url=OIDC_ISSUER.rstrip("/") + "/.well-known/openid-configuration",
+        client_kwargs={"scope": OIDC_SCOPES},
+    )
 
 
 class EnvAdminUser(UserMixin):
@@ -71,6 +117,9 @@ class User(UserMixin, db.Model):
     username = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.String(128), nullable=False)
     role = db.Column(db.String(20), nullable=False)
+    email = db.Column(db.String(255))
+    name = db.Column(db.String(255))
+    oidc_sub = db.Column(db.String(255), unique=True)
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -88,15 +137,8 @@ class LoginForm(FlaskForm):
 class UserForm(FlaskForm):
     username = StringField("Username", validators=[DataRequired()])
     password = PasswordField("Password", validators=[DataRequired()])
-    role = SelectField(
-        "Role",
-        choices=[
-            ("reader", "Reader"),
-            ("admin", "Admin"),
-            ("maintainer", "Maintainer"),
-        ],
-        validators=[DataRequired()],
-    )
+    email = StringField("Email", validators=[Optional()])
+    role = SelectField("Role", choices=ROLES, validators=[DataRequired()])
     submit = SubmitField("Add User")
 
 
@@ -109,6 +151,15 @@ def load_user(user_id):
 
 def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+def safe_name(filename):
+    """True if filename is a plain, non-hidden name inside the library folder."""
+    return (
+        bool(filename)
+        and not filename.startswith(".")
+        and not any(c in filename for c in ("/", "\\", "\0"))
+    )
 
 
 def safe_redirect(target):
@@ -246,7 +297,9 @@ def login():
             next_page = request.args.get("next")
             return redirect(next_page if next_page and safe_redirect(next_page) else url_for("index"))
         flash("Invalid username or password.", "danger")
-    return render_template("login.html", form=form)
+    return render_template(
+        "login.html", form=form, oidc_enabled=OIDC_ENABLED, oidc_provider_name=OIDC_PROVIDER_NAME
+    )
 
 
 @app.route("/logout")
@@ -254,6 +307,114 @@ def login():
 def logout():
     logout_user()
     return redirect(url_for("login"))
+
+
+def _claim_str(claims, key):
+    value = claims.get(key)
+    return value.strip() if isinstance(value, str) and value.strip() else None
+
+
+def _free_username(*candidates):
+    """First candidate that is usable as a new, unique username."""
+    for candidate in candidates:
+        if not candidate:
+            continue
+        candidate = candidate[:80]
+        if candidate != APP_USER and not User.query.filter_by(username=candidate).first():
+            return candidate
+    base = (next((c for c in candidates if c), None) or "user")[:70]
+    while True:
+        candidate = f"{base}-{secrets.token_hex(4)}"
+        if not User.query.filter_by(username=candidate).first():
+            return candidate
+
+
+def _resolve_oidc_user(claims):
+    """Map OIDC claims to a local User. Returns (user, error_message)."""
+    sub = claims["sub"]
+    username = _claim_str(claims, OIDC_USERNAME_CLAIM)
+    email = _claim_str(claims, OIDC_EMAIL_CLAIM)
+    email = email.lower() if email else None
+    name = _claim_str(claims, OIDC_NAME_CLAIM)
+    email_verified = claims.get("email_verified") in (True, "true")
+
+    # 1. Already linked to this identity.
+    user = User.query.filter_by(oidc_sub=sub).first()
+
+    # 2. Merge into an existing, not-yet-linked local account. The account keeps
+    #    its role. Email matches require the provider to have verified the email.
+    if user is None and email and email_verified:
+        matches = User.query.filter(
+            func.lower(User.email) == email, User.oidc_sub.is_(None)
+        ).all()
+        if len(matches) == 1:
+            user = matches[0]
+    if user is None and username and username != APP_USER:
+        user = User.query.filter_by(username=username, oidc_sub=None).first()
+
+    # 3. Otherwise create a reader; an admin can promote them later.
+    if user is None:
+        if not OIDC_AUTO_CREATE_USERS:
+            return None, "There is no account for this user. Ask an admin to create one."
+        user = User(
+            username=_free_username(username, email, f"oidc-{sub}"),
+            role="reader",
+            # SSO-only account: an unguessable password nobody knows.
+            password_hash=generate_password_hash(secrets.token_urlsafe(32)),
+        )
+        db.session.add(user)
+
+    user.oidc_sub = sub
+    if email:
+        user.email = email
+    if name:
+        user.name = name
+    try:
+        db.session.commit()
+    except IntegrityError:
+        # Another login for the same identity won a race; let the user retry.
+        db.session.rollback()
+        return None, "Sign-in failed, please try again."
+    return user, None
+
+
+@app.route("/login/oidc")
+def oidc_login():
+    if not OIDC_ENABLED:
+        return redirect(url_for("login"))
+    next_page = request.args.get("next")
+    session["oidc_next"] = next_page if next_page and safe_redirect(next_page) else None
+    redirect_uri = OIDC_REDIRECT_URI or url_for("oidc_callback", _external=True)
+    return oauth.oidc.authorize_redirect(redirect_uri)
+
+
+@app.route("/login/oidc/callback")
+def oidc_callback():
+    if not OIDC_ENABLED:
+        return redirect(url_for("login"))
+    try:
+        token = oauth.oidc.authorize_access_token()
+        claims = dict(token.get("userinfo") or {})
+        # Some providers (e.g. Authelia) only return profile claims from the
+        # userinfo endpoint rather than in the ID token.
+        if oauth.oidc.load_server_metadata().get("userinfo_endpoint"):
+            extra = oauth.oidc.userinfo(token=token)
+            if extra.get("sub") == claims.get("sub"):
+                claims.update(extra)
+    except Exception:
+        app.logger.exception("OIDC sign-in failed")
+        flash(f"{OIDC_PROVIDER_NAME} sign-in failed.", "danger")
+        return redirect(url_for("login"))
+    if not claims.get("sub"):
+        flash(f"{OIDC_PROVIDER_NAME} sign-in failed.", "danger")
+        return redirect(url_for("login"))
+
+    user, error = _resolve_oidc_user(claims)
+    if error:
+        flash(error, "danger")
+        return redirect(url_for("login"))
+    login_user(user)
+    return redirect(session.pop("oidc_next", None) or url_for("index"))
 
 
 @app.errorhandler(500)
@@ -355,6 +516,9 @@ def upload_file():
     file = request.files["file"]
     if file.filename == "":
         return redirect(request.url)
+    if not safe_name(file.filename):
+        flash("Invalid file name.", "danger")
+        return redirect(url_for("index"))
     if file and allowed_file(file.filename):
         filename = file.filename
         ext = filename.rsplit(".", 1)[1].lower()
@@ -409,7 +573,7 @@ def delete_file():
 
     filename = request.form["filename"]
     file_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
-    if os.path.exists(file_path):
+    if safe_name(filename) and os.path.isfile(file_path):
         os.remove(file_path)
         for thumb_ext in (".jpg", ".png"):
             thumbnail_path = os.path.join(app.config["UPLOAD_FOLDER"], filename + thumb_ext)
@@ -434,10 +598,13 @@ def admin():
         username = form.username.data
         password = form.password.data
         role = form.role.data
+        email = (form.email.data or "").strip().lower() or None
         if User.query.filter_by(username=username).first():
             flash("Username already exists.", "danger")
+        elif email and User.query.filter(func.lower(User.email) == email).first():
+            flash("Email already in use.", "danger")
         else:
-            new_user = User(username=username, role=role)
+            new_user = User(username=username, role=role, email=email)
             new_user.set_password(password)
             db.session.add(new_user)
             db.session.commit()
@@ -445,7 +612,7 @@ def admin():
             return redirect(url_for("admin"))
 
     users = User.query.all()
-    return render_template("admin.html", form=form, users=users)
+    return render_template("admin.html", form=form, users=users, roles=ROLES)
 
 
 @app.route("/delete_user", methods=["POST"])
@@ -463,6 +630,26 @@ def delete_user():
         flash("User deleted successfully.", "success")
     else:
         flash("User not found.", "error")
+    return redirect(url_for("admin"))
+
+
+@app.route("/update_user_role", methods=["POST"])
+@login_required
+def update_user_role():
+    if current_user.role != "admin":
+        flash("Unauthorized access!", "danger")
+        return redirect(url_for("index"))
+
+    user = db.session.get(User, request.form.get("user_id", type=int))
+    role = request.form.get("role")
+    if not user:
+        flash("User not found.", "error")
+    elif role not in dict(ROLES):
+        flash("Invalid role.", "danger")
+    else:
+        user.role = role
+        db.session.commit()
+        flash(f"{user.username} is now a {role}.", "success")
     return redirect(url_for("admin"))
 
 
@@ -523,6 +710,21 @@ def init_db():
         fcntl.flock(lock, fcntl.LOCK_EX)
         with app.app_context():
             db.create_all()
+            _migrate_user_table()
+
+
+def _migrate_user_table():
+    # create_all() never alters existing tables, so add columns introduced
+    # after a database was first created.
+    existing = {c["name"] for c in inspect(db.engine).get_columns("user")}
+    with db.engine.begin() as conn:
+        for column in ("email", "name"):
+            if column not in existing:
+                conn.execute(text(f'ALTER TABLE "user" ADD COLUMN {column} VARCHAR(255)'))
+        if "oidc_sub" not in existing:
+            # SQLite can't add a UNIQUE column, so enforce it with an index.
+            conn.execute(text('ALTER TABLE "user" ADD COLUMN oidc_sub VARCHAR(255)'))
+            conn.execute(text('CREATE UNIQUE INDEX ix_user_oidc_sub ON "user" (oidc_sub)'))
 
 
 init_db()
