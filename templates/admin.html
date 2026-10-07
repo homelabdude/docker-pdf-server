@@ -24,6 +24,10 @@
           {{ form.password(id="password", placeholder="Enter password") }}
         </div>
         <div class="form-field">
+          <label for="email">Email <span style="text-transform:none;font-weight:400;">(optional)</span></label>
+          {{ form.email(id="email", type="email", placeholder="Links SSO sign-ins by email") }}
+        </div>
+        <div class="form-field">
           <label for="role">Role</label>
           {{ form.role(id="role") }}
         </div>
@@ -41,6 +45,7 @@
           <tr>
             <th>ID</th>
             <th>Username</th>
+            <th>Email</th>
             <th>Role</th>
             <th></th>
           </tr>
@@ -49,12 +54,26 @@
           {% for user in users %}
           <tr>
             <td style="color:var(--text-secondary);font-size:.8rem;">{{ user.id }}</td>
-            <td><strong>{{ user.username }}</strong></td>
-            <td><span class="role-badge role-{{ user.role }}">{{ user.role }}</span></td>
+            <td>
+              <strong>{{ user.username }}</strong>
+              {% if user.oidc_sub %}<span class="sso-badge" title="Linked to SSO">SSO</span>{% endif %}
+              {% if user.name %}<div class="user-subtext">{{ user.name }}</div>{% endif %}
+            </td>
+            <td class="user-subtext">{{ user.email or '—' }}</td>
+            <td>
+              <form method="POST" action="{{ url_for('update_user_role') }}">
+                <input type="hidden" name="user_id" value="{{ user.id }}" />
+                <select name="role" class="role-select role-{{ user.role }}" onchange="this.form.submit()" aria-label="Role for {{ user.username }}">
+                  {% for value, label in roles %}
+                  <option value="{{ value }}" {% if value == user.role %}selected{% endif %}>{{ label }}</option>
+                  {% endfor %}
+                </select>
+              </form>
+            </td>
             <td>
               <form method="POST" action="{{ url_for('delete_user') }}" style="display:inline">
                 <input type="hidden" name="user_id" value="{{ user.id }}" />
-                <button type="button" class="btn-delete-row" onclick="confirmDeleteUser(this, '{{ user.username }}')">
+                <button type="button" class="btn-delete-row" data-username="{{ user.username }}" onclick="confirmDeleteUser(this, this.dataset.username)">
                   <i class="fa-solid fa-trash"></i> Delete
                 </button>
               </form>

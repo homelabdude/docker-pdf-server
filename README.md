@@ -27,8 +27,8 @@ browser-based access, allowing for quick viewing and on-the-go reading on any de
 - This server is not designed to be a comprehensive document organizer like Paperless-ngx.
 - It lacks a database or any form of grouping/bookmarking system and relies solely on file system, potentially limiting
   scalability if you want to have anything over a few 1000 files.
-- Session-based authentication is implemented, but not OAuth (Might do it later if I see the need). It is advisable not to expose the server publicly without additional
-  security. I use this with Authelia running on my reverse-proxy.
+- Session-based authentication is implemented, with optional [OIDC single sign-on](#single-sign-on-oidc). It is advisable not to expose the server publicly without additional
+  security. I use this with Authentik running on my reverse-proxy.
 - Currently, it lacks a folder system. Although this feature is simple enough to do and could be considered for future
   implementation.
 - Error handling although basic covers all scenarios.
@@ -61,6 +61,41 @@ can add additional admins, maintainers and readers
 - **Reader** - Can only read files
 
 > Note: To switch users, use the logout button in the top-right corner of the app.
+
+Admins can change a user's role at any time from the role dropdown in the Users table.
+
+### Single Sign-On (OIDC)
+
+You can let users sign in through an OpenID Connect provider such as Authelia, Authentik, Keycloak, or Pocket ID.
+SSO is enabled when `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` and `OIDC_ISSUER` are all set. A **Sign in with SSO** button then
+appears below the username/password form, which keeps working as before.
+
+| Env var | Default | Description |
+|---|---|---|
+| `OIDC_CLIENT_ID` | — | Client ID registered with your provider |
+| `OIDC_CLIENT_SECRET` | — | Client secret registered with your provider |
+| `OIDC_ISSUER` | — | Issuer URL, e.g. `https://auth.example.com`. `/.well-known/openid-configuration` is appended to discover the provider's endpoints |
+| `OIDC_REDIRECT_URI` | `<app-url>/login/oidc/callback` | Callback URL to register with your provider. Only needed if the app can't work out its public URL |
+| `OIDC_AUTO_CREATE_USERS` | `false` | Create an account on first sign-in for users who don't have one. New accounts are **Readers**; an admin can promote them |
+| `OIDC_SCOPES` | `openid email profile` | Scopes to request |
+| `OIDC_PROVIDER_NAME` | `SSO` | Label for the sign-in button, e.g. `Authelia` |
+| `OIDC_USERNAME_CLAIM` | `preferred_username` | Claim used as the username |
+| `OIDC_EMAIL_CLAIM` | `email` | Claim used as the email address |
+| `OIDC_NAME_CLAIM` | `name` | Claim used as the display name |
+
+When someone signs in through SSO, they are matched to an account in this order:
+
+1. **Already linked**: the account previously linked to that SSO identity (the provider's `sub` claim).
+2. **Matching email**: an unlinked account with the same email address. Only used when the provider says the email is verified (`email_verified`).
+3. **Matching username**: an unlinked account with the same username.
+4. **New account**: if `OIDC_AUTO_CREATE_USERS` is `true`, a new Reader account. Otherwise sign-in is refused.
+
+A matched account is linked to the SSO identity and keeps its role and password. Email and display name are refreshed
+from the provider on every SSO sign-in. To give an existing user SSO access, set their email in the **Add User** form, or
+make sure their username matches the one at your provider. The env-var admin account is never linked to SSO.
+
+> **Security note:** username matching trusts your provider's usernames. Only use a provider where users can't pick a
+> username that belongs to someone else here, such as a self-hosted provider where you create the accounts.
 
 ### Building and Running Locally for Development
 

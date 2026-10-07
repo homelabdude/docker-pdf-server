@@ -25,6 +25,10 @@
   .login-logo h1 { font-size:1.15rem; font-weight:700; color:var(--text-primary); margin:.5rem 0 0; letter-spacing:-.01em; }
   .login-logo p { font-size:.8rem; color:var(--text-secondary); margin:.25rem 0 0; }
   .btn-signin { width:100%; justify-content:center; padding:.65rem; margin-top:.5rem; border-radius:var(--radius-sm); }
+  .login-divider { display:flex; align-items:center; gap:.75rem; margin:1.25rem 0; font-size:.75rem; color:var(--text-secondary); text-transform:uppercase; letter-spacing:.04em; }
+  .login-divider::before, .login-divider::after { content:""; flex:1; height:1px; background:var(--border); }
+  .btn-sso { display:flex; align-items:center; justify-content:center; gap:.5rem; width:100%; padding:.65rem; border-radius:var(--radius-sm); border:1.5px solid var(--border); background:var(--surface); color:var(--text-primary); font-size:.875rem; font-weight:600; text-decoration:none; transition:border-color var(--transition); }
+  .btn-sso:hover { border-color:var(--accent); }
 </style>
 {% endblock %}
 
@@ -62,6 +66,13 @@
       </div>
       <button type="submit" class="btn-primary-dark btn-signin">Sign in</button>
     </form>
+
+    {% if oidc_enabled %}
+    <div class="login-divider">or</div>
+    <a href="{{ url_for('oidc_login', next=request.args.get('next')) }}" class="btn-sso">
+      <i class="fa-solid fa-key"></i> Sign in with {{ oidc_provider_name }}
+    </a>
+    {% endif %}
   </div>
 </div>
 {% endblock %}

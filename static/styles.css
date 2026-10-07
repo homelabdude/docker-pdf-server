@@ -690,6 +690,45 @@ body {
   color: #374151;
 }
 
+/* Role picker styled as a role badge, coloured by .role-* above */
+.role-select {
+  padding: 0.2rem 1.6rem 0.2rem 0.6rem;
+  border-radius: 20px;
+  border: none;
+  background-image: var(--select-arrow);
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 8px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  appearance: none;
+  -webkit-appearance: none;
+  outline: none;
+  cursor: pointer;
+}
+
+.role-select:focus-visible {
+  box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.25);
+}
+
+.sso-badge {
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 4px;
+  background: rgba(0, 113, 227, 0.1);
+  color: var(--accent);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  vertical-align: middle;
+}
+
+.user-subtext {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
 /* ── Empty state ── */
 .empty-state {
   text-align: center;
