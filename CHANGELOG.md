@@ -1,3 +1,28 @@
+# [1.9.0](https://github.com/homelabdude/docker-pdf-server/compare/v1.8.0...v1.9.0) (2026-10-07)
+
+
+### Bug Fixes
+
+* bump typing-extensions from 4.12.2 to 4.15.0 ([#70](https://github.com/homelabdude/docker-pdf-server/issues/70)) ([32700eb](https://github.com/homelabdude/docker-pdf-server/commit/32700ebb87ca3dd9f0ed0bbd968cd97475493c6d))
+* Fix Dockerfile ([#78](https://github.com/homelabdude/docker-pdf-server/issues/78)) ([5a8f443](https://github.com/homelabdude/docker-pdf-server/commit/5a8f4434f77f8ea53a74614d3c6de0a60955c3df))
+* implement ProxyFix to trust the X-Forwarded-Host/X-Forwarded-Proto headers from proxy ([95ae3a3](https://github.com/homelabdude/docker-pdf-server/commit/95ae3a3e4d60b88a701517a65fc7a71d507a4aad))
+* Login broken when running behind a reverse proxy ([b2d9d8c](https://github.com/homelabdude/docker-pdf-server/commit/b2d9d8c2a188411b101459a0fea89c7b97b92136))
+* perfomance fix to massively reduce the size of the generated thumbnails ([97668a2](https://github.com/homelabdude/docker-pdf-server/commit/97668a2e3dfd298bd70b8247a8d1aad8dc696555))
+* Update README and add delete user button ([#79](https://github.com/homelabdude/docker-pdf-server/issues/79)) ([3fe0b6f](https://github.com/homelabdude/docker-pdf-server/commit/3fe0b6f97d1d6cf40c236e3274e228b983eabd12))
+* Update to correct URL in semver metadata ([#77](https://github.com/homelabdude/docker-pdf-server/issues/77)) ([aa632f3](https://github.com/homelabdude/docker-pdf-server/commit/aa632f37f21dd6f93dbbbf71b8fe43f0f2e30360))
+
+
+### Features
+
+* add thumbnail regeneration ([0bb3e3f](https://github.com/homelabdude/docker-pdf-server/commit/0bb3e3f3860bbfbf84e5c479f48ee69223a3bd79))
+* Adding EPUB support ([9cd4ab0](https://github.com/homelabdude/docker-pdf-server/commit/9cd4ab098f6e11fee601eb280fb2d992028eaf3c))
+* bump flask and MuPDF ([#114](https://github.com/homelabdude/docker-pdf-server/issues/114)) ([d69b5a7](https://github.com/homelabdude/docker-pdf-server/commit/d69b5a77d09c5888c5746585977affe36f88a0e8))
+* fix styling on thumbnail regeneration ([a902d34](https://github.com/homelabdude/docker-pdf-server/commit/a902d34468607a72793bbb0b97f926c782d8b4e5))
+* Rewrite to ([#76](https://github.com/homelabdude/docker-pdf-server/issues/76)) ([90ee085](https://github.com/homelabdude/docker-pdf-server/commit/90ee0858e7ab79ae6e48cba829dbaecda1f37b33))
+* update dependencies in beta ([c2c7408](https://github.com/homelabdude/docker-pdf-server/commit/c2c74084218ffa2b2582e68a873af095a17d71c8))
+* version bumps across all libs ([#122](https://github.com/homelabdude/docker-pdf-server/issues/122)) ([f9b3f72](https://github.com/homelabdude/docker-pdf-server/commit/f9b3f72e8b0de4b32c3ae1bb440fefb60ed26e01))
+* version bumps on Jinja, Markupsafe and SQLAlchemy ([59c381c](https://github.com/homelabdude/docker-pdf-server/commit/59c381c9216d9c7111f96228a0a02356ab13a229))
+
 # [1.9.0-beta.3](https://github.com/homelabdude/docker-pdf-server/compare/v1.9.0-beta.2...v1.9.0-beta.3) (2026-10-07)
 
 
