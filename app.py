@@ -164,8 +164,7 @@ def _invalidate_cache() -> None:
 # Runs in a background thread so the request returns immediately; the admin
 # page polls /admin/thumbnails/status for progress. State lives on disk so
 # every gunicorn worker sees the same job: progress in a JSON file, and "is a
-# job running" as an flock on a lock file. The OS drops the flock if the
-# worker dies, so a crashed job never looks like it is still running.
+# job running" as an flock on a lock file.
 
 _THUMB_STATE_PATH = os.path.join(app.instance_path, "thumbnails.json")
 _THUMB_LOCK_PATH = os.path.join(app.instance_path, "thumbnails.lock")
