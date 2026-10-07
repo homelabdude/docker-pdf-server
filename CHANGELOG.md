@@ -1,3 +1,10 @@
+# [1.8.0-beta.3](https://github.com/homelabdude/docker-pdf-server/compare/v1.8.0-beta.2...v1.8.0-beta.3) (2026-10-07)
+
+
+### Features
+
+* fix styling on thumbnail regeneration ([a902d34](https://github.com/homelabdude/docker-pdf-server/commit/a902d34468607a72793bbb0b97f926c782d8b4e5))
+
 # [1.8.0-beta.2](https://github.com/homelabdude/docker-pdf-server/compare/v1.8.0-beta.1...v1.8.0-beta.2) (2026-10-07)
 
 
