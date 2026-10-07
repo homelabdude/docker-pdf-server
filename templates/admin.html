@@ -85,7 +85,12 @@
     </div>
     <div class="thumb-progress" id="thumbProgress" style="display:none">
       <div class="progress-track"><div class="progress-fill" id="thumbFill"></div></div>
-      <div class="progress-text" id="thumbText"></div>
+      <div class="progress-row">
+        <div class="progress-text" id="thumbText"></div>
+        <button type="button" class="btn-dismiss" id="thumbDismiss" onclick="hideThumbProgress()" title="Dismiss" style="display:none">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
       <div class="progress-failed" id="thumbFailed" style="display:none"></div>
     </div>
   </div>
@@ -101,6 +106,7 @@
   }
 
   var thumbPollTimer = null;
+  var THUMB_DONE_DISPLAY_MS = 5000;
 
   function confirmRegenerateAll() {
     showConfirm('Regenerate thumbnails for every PDF in the library? This may take a while.', function() {
@@ -132,7 +138,7 @@
   function renderThumbJob(job) {
     clearTimeout(thumbPollTimer);
     setThumbButtons(job.running);
-    if (!job.mode) return;  // no job has run since the server started
+    if (!job.mode) return;  // no job has ever run
 
     var pct = job.total ? Math.round(job.done / job.total * 100) : 100;
     var label = job.mode === 'all' ? 'Regenerating all' : 'Generating missing';
@@ -158,7 +164,18 @@
       failedEl.style.display = 'none';
     }
 
-    if (job.running) thumbPollTimer = setTimeout(pollThumbJob, 1000);
+    // Failures stay on screen until dismissed so the list can be read.
+    var keepOpen = !job.running && job.failed.length > 0;
+    document.getElementById('thumbDismiss').style.display = keepOpen ? '' : 'none';
+    if (job.running) {
+      thumbPollTimer = setTimeout(pollThumbJob, 1000);
+    } else if (!keepOpen) {
+      thumbPollTimer = setTimeout(hideThumbProgress, THUMB_DONE_DISPLAY_MS);
+    }
+  }
+
+  function hideThumbProgress() {
+    document.getElementById('thumbProgress').style.display = 'none';
   }
 
   function setThumbButtons(disabled) {
@@ -166,7 +183,10 @@
     document.getElementById('thumbAllBtn').disabled = disabled;
   }
 
-  // Pick up a job that is already running (e.g. after a page reload).
-  pollThumbJob();
+  // Pick up a job that is already running (e.g. after a page reload). A job
+  // that finished earlier is not shown — its result was already displayed.
+  fetch('{{ url_for("thumbnail_job_status") }}')
+    .then(function(r) { return r.json(); })
+    .then(function(job) { if (job.running) renderThumbJob(job); });
 </script>
 {% endblock %}

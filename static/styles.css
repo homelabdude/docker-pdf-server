@@ -595,8 +595,36 @@ body {
   transition: width 0.3s ease;
 }
 
-.progress-text {
+.progress-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   margin-top: 0.5rem;
+}
+
+.btn-dismiss {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background var(--transition);
+}
+
+.btn-dismiss:hover {
+  background: var(--border);
+}
+
+.progress-text {
+  flex: 1;
+  min-width: 0;
   font-size: 0.8rem;
   color: var(--text-secondary);
   overflow: hidden;
