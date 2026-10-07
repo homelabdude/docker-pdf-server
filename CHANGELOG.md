@@ -1,3 +1,10 @@
+# [1.8.0-beta.2](https://github.com/homelabdude/docker-pdf-server/compare/v1.8.0-beta.1...v1.8.0-beta.2) (2026-10-07)
+
+
+### Features
+
+* version bumps across all libs ([#122](https://github.com/homelabdude/docker-pdf-server/issues/122)) ([f9b3f72](https://github.com/homelabdude/docker-pdf-server/commit/f9b3f72e8b0de4b32c3ae1bb440fefb60ed26e01))
+
 # [1.8.0-beta.1](https://github.com/homelabdude/docker-pdf-server/compare/v1.7.0...v1.8.0-beta.1) (2026-09-26)
 
 
