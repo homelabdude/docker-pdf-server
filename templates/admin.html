@@ -73,6 +73,28 @@
 
   </div>
 
+  <div class="admin-card" style="margin-top:1.5rem;">
+    <h5>Thumbnails</h5>
+    <div class="thumb-actions">
+      <button type="button" class="btn-primary-dark" id="thumbMissingBtn" onclick="startThumbJob('missing')">
+        <i class="fa-solid fa-image"></i> Generate Missing
+      </button>
+      <button type="button" class="btn-primary-dark" id="thumbAllBtn" onclick="confirmRegenerateAll()">
+        <i class="fa-solid fa-arrows-rotate"></i> Regenerate All
+      </button>
+    </div>
+    <div class="thumb-progress" id="thumbProgress" style="display:none">
+      <div class="progress-track"><div class="progress-fill" id="thumbFill"></div></div>
+      <div class="progress-row">
+        <div class="progress-text" id="thumbText"></div>
+        <button type="button" class="btn-dismiss" id="thumbDismiss" onclick="hideThumbProgress()" title="Dismiss" style="display:none">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="progress-failed" id="thumbFailed" style="display:none"></div>
+    </div>
+  </div>
+
 {% endblock %}
 
 {% block scripts %}
@@ -82,5 +104,89 @@
       btn.closest('form').submit();
     }, 'Delete', true);
   }
+
+  var thumbPollTimer = null;
+  var THUMB_DONE_DISPLAY_MS = 5000;
+
+  function confirmRegenerateAll() {
+    showConfirm('Regenerate thumbnails for every PDF in the library? This may take a while.', function() {
+      startThumbJob('all');
+    }, 'Regenerate');
+  }
+
+  function startThumbJob(mode) {
+    setThumbButtons(true);
+    fetch('{{ url_for("start_thumbnail_job") }}', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'mode=' + encodeURIComponent(mode)
+    })
+      .then(function(r) { return r.json(); })
+      .then(function(job) {
+        if (job.error) { alert(job.error); }
+        renderThumbJob(job);
+      })
+      .catch(function() { setThumbButtons(false); });
+  }
+
+  function pollThumbJob() {
+    fetch('{{ url_for("thumbnail_job_status") }}')
+      .then(function(r) { return r.json(); })
+      .then(renderThumbJob);
+  }
+
+  function renderThumbJob(job) {
+    clearTimeout(thumbPollTimer);
+    setThumbButtons(job.running);
+    if (!job.mode) return;  // no job has ever run
+
+    var pct = job.total ? Math.round(job.done / job.total * 100) : 100;
+    var label = job.mode === 'all' ? 'Regenerating all' : 'Generating missing';
+    var text;
+    if (job.running) {
+      text = label + ': ' + job.done + ' / ' + job.total + ' (' + pct + '%)' +
+             (job.current ? ' — ' + job.current : '');
+    } else if (job.total === 0) {
+      text = 'No thumbnails needed generating.';
+    } else {
+      text = 'Done: ' + job.generated + ' of ' + job.total + ' thumbnails generated.';
+    }
+
+    document.getElementById('thumbProgress').style.display = '';
+    document.getElementById('thumbFill').style.width = pct + '%';
+    document.getElementById('thumbText').textContent = text;
+
+    var failedEl = document.getElementById('thumbFailed');
+    if (job.failed.length) {
+      failedEl.style.display = '';
+      failedEl.textContent = job.failed.length + ' failed: ' + job.failed.join(', ');
+    } else {
+      failedEl.style.display = 'none';
+    }
+
+    // Failures stay on screen until dismissed so the list can be read.
+    var keepOpen = !job.running && job.failed.length > 0;
+    document.getElementById('thumbDismiss').style.display = keepOpen ? '' : 'none';
+    if (job.running) {
+      thumbPollTimer = setTimeout(pollThumbJob, 1000);
+    } else if (!keepOpen) {
+      thumbPollTimer = setTimeout(hideThumbProgress, THUMB_DONE_DISPLAY_MS);
+    }
+  }
+
+  function hideThumbProgress() {
+    document.getElementById('thumbProgress').style.display = 'none';
+  }
+
+  function setThumbButtons(disabled) {
+    document.getElementById('thumbMissingBtn').disabled = disabled;
+    document.getElementById('thumbAllBtn').disabled = disabled;
+  }
+
+  // Pick up a job that is already running (e.g. after a page reload). A job
+  // that finished earlier is not shown — its result was already displayed.
+  fetch('{{ url_for("thumbnail_job_status") }}')
+    .then(function(r) { return r.json(); })
+    .then(function(job) { if (job.running) renderThumbJob(job); });
 </script>
 {% endblock %}
