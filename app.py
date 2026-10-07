@@ -30,6 +30,7 @@ from flask_login import (
 )
 from flask_sqlalchemy import SQLAlchemy
 from flask_wtf import FlaskForm
+from flask_wtf.csrf import CSRFProtect
 from sqlalchemy import func, inspect, text
 from sqlalchemy.exc import IntegrityError
 from wtforms import StringField, PasswordField, SelectField, SubmitField
@@ -73,7 +74,14 @@ app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///users.db"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["SECRET_KEY"] = APP_KEY
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+# Off by default so plain-HTTP LAN deployments keep working; enable behind HTTPS.
+app.config["SESSION_COOKIE_SECURE"] = _env_bool("SESSION_COOKIE_SECURE")
+# Tokens last as long as the session, so a library tab left open still works.
+app.config["WTF_CSRF_TIME_LIMIT"] = None
 
+csrf = CSRFProtect(app)
 db = SQLAlchemy(app)
 login_manager = LoginManager(app)
 login_manager.login_view = "login"
@@ -143,6 +151,15 @@ def load_user(user_id):
 
 def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+def safe_name(filename):
+    """True if filename is a plain, non-hidden name inside the library folder."""
+    return (
+        bool(filename)
+        and not filename.startswith(".")
+        and not any(c in filename for c in ("/", "\\", "\0"))
+    )
 
 
 def safe_redirect(target):
@@ -499,6 +516,9 @@ def upload_file():
     file = request.files["file"]
     if file.filename == "":
         return redirect(request.url)
+    if not safe_name(file.filename):
+        flash("Invalid file name.", "danger")
+        return redirect(url_for("index"))
     if file and allowed_file(file.filename):
         filename = file.filename
         ext = filename.rsplit(".", 1)[1].lower()
@@ -553,7 +573,7 @@ def delete_file():
 
     filename = request.form["filename"]
     file_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
-    if os.path.exists(file_path):
+    if safe_name(filename) and os.path.isfile(file_path):
         os.remove(file_path)
         for thumb_ext in (".jpg", ".png"):
             thumbnail_path = os.path.join(app.config["UPLOAD_FOLDER"], filename + thumb_ext)

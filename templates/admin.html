@@ -62,6 +62,7 @@
             <td class="user-subtext">{{ user.email or '—' }}</td>
             <td>
               <form method="POST" action="{{ url_for('update_user_role') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
                 <input type="hidden" name="user_id" value="{{ user.id }}" />
                 <select name="role" class="role-select role-{{ user.role }}" onchange="this.form.submit()" aria-label="Role for {{ user.username }}">
                   {% for value, label in roles %}
@@ -72,6 +73,7 @@
             </td>
             <td>
               <form method="POST" action="{{ url_for('delete_user') }}" style="display:inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
                 <input type="hidden" name="user_id" value="{{ user.id }}" />
                 <button type="button" class="btn-delete-row" data-username="{{ user.username }}" onclick="confirmDeleteUser(this, this.dataset.username)">
                   <i class="fa-solid fa-trash"></i> Delete
@@ -137,7 +139,10 @@
     setThumbButtons(true);
     fetch('{{ url_for("start_thumbnail_job") }}', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'X-CSRFToken': '{{ csrf_token() }}'
+      },
       body: 'mode=' + encodeURIComponent(mode)
     })
       .then(function(r) { return r.json(); })
