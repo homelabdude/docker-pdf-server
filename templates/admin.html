@@ -57,6 +57,7 @@
             <td>
               <strong>{{ user.username }}</strong>
               {% if user.oidc_sub %}<span class="sso-badge" title="Linked to SSO">SSO</span>{% endif %}
+              {% if user.locked %}<span class="sso-badge" title="Locked after too many failed logins" style="background:#b91c1c;color:#fff;">LOCKED</span>{% endif %}
               {% if user.name %}<div class="user-subtext">{{ user.name }}</div>{% endif %}
             </td>
             <td class="user-subtext">{{ user.email or '—' }}</td>
@@ -72,6 +73,15 @@
               </form>
             </td>
             <td>
+              {% if user.locked %}
+              <form method="POST" action="{{ url_for('unlock_user') }}" style="display:inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                <input type="hidden" name="user_id" value="{{ user.id }}" />
+                <button type="submit" class="btn-primary-dark" title="Unlock account">
+                  <i class="fa-solid fa-lock-open"></i> Unlock
+                </button>
+              </form>
+              {% endif %}
               <form method="POST" action="{{ url_for('delete_user') }}" style="display:inline">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
                 <input type="hidden" name="user_id" value="{{ user.id }}" />
@@ -114,6 +124,22 @@
       </div>
       <div class="progress-failed" id="thumbFailed" style="display:none"></div>
     </div>
+  </div>
+
+  <div class="admin-card" style="margin-top:1.5rem;">
+    <h5>Security</h5>
+    <form method="POST" action="{{ url_for('update_settings') }}" class="form-field" style="max-width:420px;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+      <label for="max_failed_logins">Lock accounts after this many failed logins</label>
+      <input type="number" id="max_failed_logins" name="max_failed_logins" min="0"
+             value="{{ max_failed_logins }}" style="width:6rem;" />
+      <div class="user-subtext" style="margin:.4rem 0 .75rem;">
+        Applies to all users. Set to 0 to disable lockout. The built-in admin is never locked out.
+      </div>
+      <button type="submit" class="btn-primary-dark">
+        <i class="fa-solid fa-floppy-disk"></i> Save
+      </button>
+    </form>
   </div>
 
 {% endblock %}
