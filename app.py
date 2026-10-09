@@ -45,6 +45,8 @@ APP_USER = os.environ.get("DOCKER_PDF_SERVER_USER", "admin")
 APP_PASSWORD = os.environ.get("DOCKER_PDF_SERVER_PASSWORD", "password")
 ALLOWED_EXTENSIONS = {"pdf", "epub"}
 ROLES = [("reader", "Reader"), ("admin", "Admin"), ("maintainer", "Maintainer")]
+# Failed logins before a DB user is locked; 0 disables lockout. Admin-editable.
+LOGIN_LOCKOUT_DEFAULT = 5
 
 
 def _env_bool(name, default=False):
@@ -120,12 +122,37 @@ class User(UserMixin, db.Model):
     email = db.Column(db.String(255))
     name = db.Column(db.String(255))
     oidc_sub = db.Column(db.String(255), unique=True)
+    failed_logins = db.Column(db.Integer, nullable=False, default=0)
+    locked = db.Column(db.Boolean, nullable=False, default=False)
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
+
+
+class Setting(db.Model):
+    """Admin-editable key/value config, persisted so every worker agrees."""
+    key = db.Column(db.String(64), primary_key=True)
+    value = db.Column(db.String(255))
+
+
+def get_max_failed_logins():
+    row = db.session.get(Setting, "max_failed_logins")
+    try:
+        return int(row.value)
+    except (AttributeError, TypeError, ValueError):
+        return LOGIN_LOCKOUT_DEFAULT
+
+
+def set_max_failed_logins(value):
+    row = db.session.get(Setting, "max_failed_logins")
+    if row is None:
+        row = Setting(key="max_failed_logins")
+        db.session.add(row)
+    row.value = str(value)
+    db.session.commit()
 
 
 class LoginForm(FlaskForm):
@@ -279,6 +306,15 @@ def _run_thumbnail_job(lock, folder: str, pdfs: list[str], mode: str) -> None:
         lock.close()  # releases the flock
 
 
+def _register_failed_login(user):
+    """Count a failed attempt and lock the account once the limit is reached."""
+    user.failed_logins = (user.failed_logins or 0) + 1
+    limit = get_max_failed_logins()
+    if limit > 0 and user.failed_logins >= limit:
+        user.locked = True
+    db.session.commit()
+
+
 @app.route("/", methods=["GET", "POST"])
 def login():
     if current_user.is_authenticated:
@@ -287,16 +323,28 @@ def login():
     if form.validate_on_submit():
         username = form.username.data
         password = form.password.data
-        if username == APP_USER and password == APP_PASSWORD:
-            login_user(EnvAdminUser())
-            next_page = request.args.get("next")
-            return redirect(next_page if next_page and safe_redirect(next_page) else url_for("index"))
-        db_user = User.query.filter_by(username=username).first()
-        if db_user and db_user.check_password(password):
-            login_user(db_user)
-            next_page = request.args.get("next")
-            return redirect(next_page if next_page and safe_redirect(next_page) else url_for("index"))
-        flash("Invalid username or password.", "danger")
+        next_page = request.args.get("next")
+        target = next_page if next_page and safe_redirect(next_page) else url_for("index")
+        # The env-var admin is a recovery account: constant-time check, never locked.
+        if username == APP_USER:
+            if secrets.compare_digest(password.encode(), APP_PASSWORD.encode()):
+                login_user(EnvAdminUser())
+                return redirect(target)
+            flash("Invalid username or password.", "danger")
+        else:
+            db_user = User.query.filter_by(username=username).first()
+            if db_user and db_user.locked:
+                flash("This account is locked. Ask an admin to unlock it.", "danger")
+            elif db_user and db_user.check_password(password):
+                if db_user.failed_logins:
+                    db_user.failed_logins = 0
+                    db.session.commit()
+                login_user(db_user)
+                return redirect(target)
+            else:
+                if db_user:
+                    _register_failed_login(db_user)
+                flash("Invalid username or password.", "danger")
     return render_template(
         "login.html", form=form, oidc_enabled=OIDC_ENABLED, oidc_provider_name=OIDC_PROVIDER_NAME
     )
@@ -349,13 +397,19 @@ def _resolve_oidc_user(claims):
         ).all()
         if len(matches) == 1:
             user = matches[0]
-    if user is None and username and username != APP_USER:
-        user = User.query.filter_by(username=username, oidc_sub=None).first()
-
-    # 3. Otherwise create a reader; an admin can promote them later.
+    # 3. Otherwise create a reader; an admin can promote them later. Do not
+    #    adopt an existing local account by username: many providers let users
+    #    set their own `preferred_username. So A name collision is refused so
+    #    an admin can link the account deliberately.
     if user is None:
         if not OIDC_AUTO_CREATE_USERS:
             return None, "There is no account for this user. Ask an admin to create one."
+        desired = (username or email or "")[:80]
+        if desired and User.query.filter_by(username=desired).first():
+            return None, (
+                f"A user named “{desired}” already exists. "
+                "Ask an admin to link your account."
+            )
         user = User(
             username=_free_username(username, email, f"oidc-{sub}"),
             role="reader",
@@ -557,6 +611,9 @@ def upload_file():
         _invalidate_cache()
         return redirect(url_for("index"))
 
+    flash("Unsupported file type. Please upload a PDF or EPUB.", "danger")
+    return redirect(url_for("index"))
+
 
 @app.route("/library/<filename>")
 @login_required
@@ -612,7 +669,50 @@ def admin():
             return redirect(url_for("admin"))
 
     users = User.query.all()
-    return render_template("admin.html", form=form, users=users, roles=ROLES)
+    return render_template(
+        "admin.html",
+        form=form,
+        users=users,
+        roles=ROLES,
+        max_failed_logins=get_max_failed_logins(),
+    )
+
+
+@app.route("/admin/settings", methods=["POST"])
+@login_required
+def update_settings():
+    if current_user.role != "admin":
+        flash("Unauthorized access!", "danger")
+        return redirect(url_for("index"))
+
+    value = request.form.get("max_failed_logins", type=int)
+    if value is None or value < 0:
+        flash("Enter 0 or a positive number of attempts.", "danger")
+    else:
+        set_max_failed_logins(value)
+        if value == 0:
+            flash("Account lockout disabled.", "success")
+        else:
+            flash(f"Accounts now lock after {value} failed attempts.", "success")
+    return redirect(url_for("admin"))
+
+
+@app.route("/unlock_user", methods=["POST"])
+@login_required
+def unlock_user():
+    if current_user.role != "admin":
+        flash("Unauthorized access!", "danger")
+        return redirect(url_for("index"))
+
+    user = db.session.get(User, request.form.get("user_id", type=int))
+    if not user:
+        flash("User not found.", "error")
+    else:
+        user.locked = False
+        user.failed_logins = 0
+        db.session.commit()
+        flash(f"{user.username} unlocked.", "success")
+    return redirect(url_for("admin"))
 
 
 @app.route("/delete_user", methods=["POST"])
@@ -725,6 +825,10 @@ def _migrate_user_table():
             # SQLite can't add a UNIQUE column, so enforce it with an index.
             conn.execute(text('ALTER TABLE "user" ADD COLUMN oidc_sub VARCHAR(255)'))
             conn.execute(text('CREATE UNIQUE INDEX ix_user_oidc_sub ON "user" (oidc_sub)'))
+        if "failed_logins" not in existing:
+            conn.execute(text('ALTER TABLE "user" ADD COLUMN failed_logins INTEGER NOT NULL DEFAULT 0'))
+        if "locked" not in existing:
+            conn.execute(text('ALTER TABLE "user" ADD COLUMN locked BOOLEAN NOT NULL DEFAULT 0'))
 
 
 init_db()
