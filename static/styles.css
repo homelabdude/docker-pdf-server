@@ -190,6 +190,11 @@ body {
   opacity: 0.85;
 }
 
+.btn-upload-submit:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 /* ── Search ── */
 .search-wrap {
   flex: 1;
