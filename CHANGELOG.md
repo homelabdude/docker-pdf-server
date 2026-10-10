@@ -1,3 +1,11 @@
+# [1.11.0-beta.4](https://github.com/homelabdude/docker-pdf-server/compare/v1.11.0-beta.3...v1.11.0-beta.4) (2026-10-10)
+
+
+### Bug Fixes
+
+* make the delete message a toast ([ddc36d7](https://github.com/homelabdude/docker-pdf-server/commit/ddc36d720de2f68e4cc47fc12a5ebcbace473272))
+* Merge pull request [#135](https://github.com/homelabdude/docker-pdf-server/issues/135) from homelabdude/feat/warn-on-duplicate-uploads ([d0806d6](https://github.com/homelabdude/docker-pdf-server/commit/d0806d6af6c2e15719085279638332f3b2c5f41a))
+
 # [1.11.0-beta.3](https://github.com/homelabdude/docker-pdf-server/compare/v1.11.0-beta.2...v1.11.0-beta.3) (2026-10-10)
 
 
