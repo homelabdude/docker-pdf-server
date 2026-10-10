@@ -750,7 +750,7 @@ def delete_file():
         os.remove(file_path)
         remove_thumbnails(filename)
         _invalidate_cache()
-        flash("File deleted successfully.", "success")
+        flash("File deleted.", "toast")
     else:
         flash("File not found.", "error")
     return redirect(url_for("index"))
