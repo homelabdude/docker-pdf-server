@@ -18,7 +18,7 @@
         <i class="fa-solid fa-arrow-up-from-bracket"></i>
         <span id="uploadLabelText">Upload PDF / EPUB</span>
       </label>
-      <input type="file" id="uploadFileInput" name="file" accept=".pdf,.epub" required onchange="onFileSelected(this)" />
+      <input type="file" id="uploadFileInput" name="file" accept=".pdf,.epub" required autocomplete="off" onclick="this.value=null" onchange="onFileSelected(this)" />
       <button class="btn-upload-submit" type="button" id="uploadSubmitBtn" style="display:none" onclick="confirmUpload()">
         <i class="fa-solid fa-check"></i> Upload
       </button>
