@@ -1,3 +1,10 @@
+# [1.11.0-beta.2](https://github.com/homelabdude/docker-pdf-server/compare/v1.11.0-beta.1...v1.11.0-beta.2) (2026-10-10)
+
+
+### Features
+
+* warn on duplicate file uploads ([eea7966](https://github.com/homelabdude/docker-pdf-server/commit/eea796643317deab10964cc88c07b3bdd863f87a))
+
 # [1.11.0-beta.1](https://github.com/homelabdude/docker-pdf-server/compare/v1.10.0...v1.11.0-beta.1) (2026-10-10)
 
 
