@@ -1,3 +1,11 @@
+# [1.11.0-beta.3](https://github.com/homelabdude/docker-pdf-server/compare/v1.11.0-beta.2...v1.11.0-beta.3) (2026-10-10)
+
+
+### Bug Fixes
+
+* Merge pull request [#134](https://github.com/homelabdude/docker-pdf-server/issues/134) from homelabdude/feat/warn-on-duplicate-uploads ([590fcea](https://github.com/homelabdude/docker-pdf-server/commit/590fceada704e17cb55b6e86f8ccca7e24e35698))
+* update the handling of duplicate files ([ba39f10](https://github.com/homelabdude/docker-pdf-server/commit/ba39f103b038540fbd1cca895c5c0ed57332e589))
+
 # [1.11.0-beta.2](https://github.com/homelabdude/docker-pdf-server/compare/v1.11.0-beta.1...v1.11.0-beta.2) (2026-10-10)
 
 
