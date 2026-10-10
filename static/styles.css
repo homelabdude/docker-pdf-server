@@ -501,6 +501,46 @@ body {
   border: 1px solid #fde68a;
 }
 
+/* ── Toasts ── (flash category "toast"; fade out on their own) */
+.toast-stack {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 900; /* above the nav, below the confirm modal */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  pointer-events: none;
+}
+
+.toast {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1.1rem;
+  border-radius: 20px;
+  background: var(--btn-bg);
+  color: var(--btn-fg);
+  font-size: 0.85rem;
+  font-weight: 500;
+  box-shadow: var(--shadow-hover);
+  animation: toast-in 0.25s ease, toast-out 0.4s ease 3s forwards;
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+}
+
+@keyframes toast-out {
+  to { opacity: 0; transform: translateY(8px); visibility: hidden; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast { animation: toast-out 0s linear 3.5s forwards; }
+}
+
 /* ── Admin page ── */
 .admin-card {
   background: var(--surface);
