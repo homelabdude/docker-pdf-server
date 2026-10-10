@@ -14,6 +14,7 @@
     {% if current_user.role in ["admin", "maintainer"] %}
     <form action="/upload" method="post" enctype="multipart/form-data" id="uploadForm" style="display:contents">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+      <input type="hidden" name="overwrite" id="uploadOverwrite" value="" />
       <label class="upload-label" for="uploadFileInput" id="uploadLabel">
         <i class="fa-solid fa-arrow-up-from-bracket"></i>
         <span id="uploadLabelText">Upload PDF / EPUB</span>
@@ -112,30 +113,27 @@
     return cols * 4;
   }
 
-  (function syncPerPage() {
+  /* The server falls back to the per_page cookie when the URL has none, so
+     redirects (upload, delete) render at the right size without a reload —
+     a reload would swallow the flash message. */
+  var renderedPerPage = {{ per_page }};
+
+  function syncPerPage() {
     var ideal = calcIdealPerPage();
-    var url = new URL(window.location.href);
-    var current = parseInt(url.searchParams.get('per_page') || '0', 10);
-    if (current !== ideal) {
+    document.cookie = 'per_page=' + ideal + '; path=/; max-age=31536000; SameSite=Lax';
+    if (renderedPerPage !== ideal) {
+      var url = new URL(window.location.href);
       url.searchParams.set('per_page', String(ideal));
       url.searchParams.delete('page');
       window.location.replace(url.toString());
     }
-  })();
+  }
+  syncPerPage();
 
   var _resizeTimer;
   window.addEventListener('resize', function () {
     clearTimeout(_resizeTimer);
-    _resizeTimer = setTimeout(function () {
-      var ideal = calcIdealPerPage();
-      var url = new URL(window.location.href);
-      var current = parseInt(url.searchParams.get('per_page') || '0', 10);
-      if (current !== ideal) {
-        url.searchParams.set('per_page', String(ideal));
-        url.searchParams.delete('page');
-        window.location.replace(url.toString());
-      }
-    }, 600);
+    _resizeTimer = setTimeout(syncPerPage, 600);
   });
 
   /* ── Upload ── */
@@ -163,15 +161,40 @@
 
   function confirmUpload() {
     var input = document.getElementById('uploadFileInput');
-    if (input.files && input.files[0] && input.files[0].name.toLowerCase().endsWith('.epub')) {
-      showConfirm(
-        'EPUB files will be converted to PDF before storing. Formatting may vary depending on the source file - continue?',
-        function() { document.getElementById('uploadForm').submit(); },
-        'Upload'
-      );
-    } else {
-      document.getElementById('uploadForm').submit();
+    if (!(input.files && input.files[0])) return;
+    var name = input.files[0].name;
+    var overwrite = document.getElementById('uploadOverwrite');
+    overwrite.value = '';
+
+    function submit() { document.getElementById('uploadForm').submit(); }
+
+    function confirmEpub() {
+      if (name.toLowerCase().endsWith('.epub')) {
+        showConfirm(
+          'EPUB files will be converted to PDF before storing. Formatting may vary depending on the source file - continue?',
+          submit,
+          'Upload'
+        );
+      } else {
+        submit();
+      }
     }
+
+    /* Only the check needs guarding; once a modal is open it covers the button. */
+    var submitBtn = document.getElementById('uploadSubmitBtn');
+    submitBtn.disabled = true;
+    fetch('/upload/check?name=' + encodeURIComponent(name))
+      .then(function(r) { return r.json(); })
+      .finally(function() { submitBtn.disabled = false; })
+      .then(function(data) {
+        if (!data.exists) return confirmEpub();
+        showConfirm('"' + data.name + '" already exists. Replace it?', function() {
+          overwrite.value = '1';
+          confirmEpub();
+        }, 'Replace', true);
+      })
+      /* If the check fails, upload anyway; the server still refuses duplicates. */
+      .catch(confirmEpub);
   }
 
   function confirmDelete(btn, fileName) {

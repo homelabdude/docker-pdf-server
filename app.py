@@ -3,6 +3,8 @@ import json
 import os
 import math
 import secrets
+import shutil
+import tempfile
 import time
 import threading
 from urllib.parse import urlparse, urljoin
@@ -152,7 +154,7 @@ if OIDC_ENABLED:
 
 
 class EnvAdminUser(UserMixin):
-    """Represents the env-var-configured admin; never stored in the DB."""
+    """Represents the env-var-configured admin; not stored in the DB."""
     id = 0
 
     @property
@@ -238,6 +240,25 @@ def safe_name(filename):
         and not filename.startswith(".")
         and not any(c in filename for c in ("/", "\\", "\0"))
     )
+
+
+def library_name(filename):
+    """Name an upload is stored under: always a lowercase .pdf, which is what the
+    library scan lists. EPUBs land as their converted PDF."""
+    return filename.rsplit(".", 1)[0] + ".pdf"
+
+
+def remove_thumbnails(filename):
+    for thumb_ext in (".jpg", ".png"):
+        thumbnail_path = os.path.join(app.config["UPLOAD_FOLDER"], filename + thumb_ext)
+        if os.path.exists(thumbnail_path):
+            os.remove(thumbnail_path)
+
+
+def requested_per_page():
+    """per_page from the URL, else the value the browser last computed (cookie)."""
+    per_page = request.args.get("per_page", type=int) or request.cookies.get("per_page", type=int) or 12
+    return max(4, min(120, per_page))
 
 
 def safe_redirect(target):
@@ -543,7 +564,7 @@ def internal_server_error(e):
 @login_required
 def index():
     page = request.args.get("page", 1, type=int)
-    per_page = max(4, min(120, request.args.get("per_page", 12, type=int)))
+    per_page = requested_per_page()
     sort_order = request.args.get("sort", "newest")
     upload_folder = app.config["UPLOAD_FOLDER"]
 
@@ -577,7 +598,7 @@ def index():
 def search():
     query = request.args.get("query", "").strip()
     page = request.args.get("page", 1, type=int)
-    per_page = max(4, min(120, request.args.get("per_page", 12, type=int)))
+    per_page = requested_per_page()
     sort_order = request.args.get("sort", "newest")
     upload_folder = app.config["UPLOAD_FOLDER"]
 
@@ -630,50 +651,84 @@ def upload_file():
         flash("Invalid file name.", "danger")
         return redirect(url_for("index"))
     if file and allowed_file(file.filename):
-        filename = file.filename
-        ext = filename.rsplit(".", 1)[1].lower()
-        # An EPUB lands in the library as its converted .pdf, so check that name.
-        final_name = filename.rsplit(".", 1)[0] + ".pdf" if ext == "epub" else filename
-        if os.path.exists(os.path.join(app.config["UPLOAD_FOLDER"], final_name)):
-            flash(f"“{final_name}” already exists. Delete it first to replace it.", "warning")
+        folder = app.config["UPLOAD_FOLDER"]
+        final_name = library_name(file.filename)
+        final_path = os.path.join(folder, final_name)
+        replacing = os.path.exists(final_path)
+        # The browser asks before replacing; this catches anything that
+        # skipped the prompt, or a file that appeared since it was shown.
+        if replacing and request.form.get("overwrite") != "1":
+            flash(f"“{final_name}” already exists.", "warning")
             return redirect(url_for("index"))
-        file_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
-        file.save(file_path)
 
-        if ext == "epub":
-            pdf_filename = filename.rsplit(".", 1)[0] + ".pdf"
-            pdf_path = os.path.join(app.config["UPLOAD_FOLDER"], pdf_filename)
-            try:
-                doc = pymupdf.open(file_path)
-                pdf_bytes = doc.convert_to_pdf()
-                doc.close()
-                with open(pdf_path, "wb") as f:
-                    f.write(pdf_bytes)
-            except Exception:
-                os.remove(file_path)
-                return render_template(
-                    "error.html",
-                    error_message="Could not convert EPUB to PDF. The file may be malformed.",
-                )
-            os.remove(file_path)
-            filename = pdf_filename
-            file_path = pdf_path
-
+        # Build the PDF and its thumbnail in a staging dir, so a bad upload
+        # never touches the library — in particular, never destroys the file
+        # it was meant to replace. The dir lives inside the library (same
+        # filesystem, so moving out of it is atomic); library scans skip dirs.
+        staging = tempfile.mkdtemp(dir=folder, prefix=".upload-")
         try:
-            thumbnail_path = os.path.join(app.config["UPLOAD_FOLDER"], filename + ".jpg")
-            generate_thumbnail(file_path, thumbnail_path)
-        except Exception:
-            error_message = (
-                "Could not generate thumbnail. The PDF may be malformed. "
-                "You may still view it if your client supports it."
-            )
-            return render_template("error.html", error_message=error_message)
+            staged_pdf = os.path.join(staging, final_name)
+            if file.filename.rsplit(".", 1)[1].lower() == "epub":
+                staged_epub = os.path.join(staging, "upload.epub")
+                file.save(staged_epub)
+                try:
+                    doc = pymupdf.open(staged_epub)
+                    pdf_bytes = doc.convert_to_pdf()
+                    doc.close()
+                    with open(staged_pdf, "wb") as f:
+                        f.write(pdf_bytes)
+                except Exception:
+                    return render_template(
+                        "error.html",
+                        error_message="Could not convert EPUB to PDF. The file may be malformed.",
+                    )
+            else:
+                file.save(staged_pdf)
 
-        _invalidate_cache()
-        return redirect(url_for("index"))
+            staged_thumb = staged_pdf + ".jpg"
+            try:
+                generate_thumbnail(staged_pdf, staged_thumb)
+            except Exception:
+                if replacing:
+                    error_message = (
+                        f"Could not read the new “{final_name}”. The PDF may be malformed. "
+                        "The existing file was kept."
+                    )
+                    return render_template("error.html", error_message=error_message)
+                os.replace(staged_pdf, final_path)
+                remove_thumbnails(final_name)
+                _invalidate_cache()
+                error_message = (
+                    "Could not generate thumbnail. The PDF may be malformed. "
+                    "You may still view it if your client supports it."
+                )
+                return render_template("error.html", error_message=error_message)
+
+            os.replace(staged_pdf, final_path)
+            # Drop any .png left by the file this replaced; the .jpg is overwritten.
+            remove_thumbnails(final_name)
+            os.replace(staged_thumb, final_path + ".jpg")
+            _invalidate_cache()
+            return redirect(url_for("index"))
+        finally:
+            shutil.rmtree(staging, ignore_errors=True)
 
     flash("Unsupported file type. Please upload a PDF or EPUB.", "danger")
     return redirect(url_for("index"))
+
+
+@app.route("/upload/check")
+@login_required
+def upload_check():
+    """Tell the upload form whether a file would replace one already in the library."""
+    if current_user.role not in ["admin", "maintainer"]:
+        return jsonify({"error": "Unauthorized"}), 403
+    filename = request.args.get("name", "")
+    if not (safe_name(filename) and allowed_file(filename)):
+        return jsonify({"exists": False})
+    final_name = library_name(filename)
+    exists = os.path.exists(os.path.join(app.config["UPLOAD_FOLDER"], final_name))
+    return jsonify({"exists": exists, "name": final_name})
 
 
 @app.route("/library/<filename>")
@@ -693,10 +748,7 @@ def delete_file():
     file_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
     if safe_name(filename) and os.path.isfile(file_path):
         os.remove(file_path)
-        for thumb_ext in (".jpg", ".png"):
-            thumbnail_path = os.path.join(app.config["UPLOAD_FOLDER"], filename + thumb_ext)
-            if os.path.exists(thumbnail_path):
-                os.remove(thumbnail_path)
+        remove_thumbnails(filename)
         _invalidate_cache()
         flash("File deleted successfully.", "success")
     else:
