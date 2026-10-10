@@ -1,3 +1,11 @@
+# [1.11.0-beta.1](https://github.com/homelabdude/docker-pdf-server/compare/v1.10.0...v1.11.0-beta.1) (2026-10-10)
+
+
+### Features
+
+* Merge pull request [#132](https://github.com/homelabdude/docker-pdf-server/issues/132) from homelabdude/fix/move-from-fitz-to-pymupdf ([a699ff6](https://github.com/homelabdude/docker-pdf-server/commit/a699ff6368f7b6c7463c7fd6323536625657b16a))
+* Move from fitz to pymupdf ([b6c3b99](https://github.com/homelabdude/docker-pdf-server/commit/b6c3b99dec7447e634d25dc03700ed4ae954967a))
+
 # [1.10.0](https://github.com/homelabdude/docker-pdf-server/compare/v1.9.0...v1.10.0) (2026-10-09)
 
 
