@@ -1,3 +1,21 @@
+# [1.11.0](https://github.com/homelabdude/docker-pdf-server/compare/v1.10.0...v1.11.0) (2026-10-29)
+
+
+### Bug Fixes
+
+* make the delete message a toast ([ddc36d7](https://github.com/homelabdude/docker-pdf-server/commit/ddc36d720de2f68e4cc47fc12a5ebcbace473272))
+* Merge pull request [#134](https://github.com/homelabdude/docker-pdf-server/issues/134) from homelabdude/feat/warn-on-duplicate-uploads ([590fcea](https://github.com/homelabdude/docker-pdf-server/commit/590fceada704e17cb55b6e86f8ccca7e24e35698))
+* Merge pull request [#135](https://github.com/homelabdude/docker-pdf-server/issues/135) from homelabdude/feat/warn-on-duplicate-uploads ([d0806d6](https://github.com/homelabdude/docker-pdf-server/commit/d0806d6af6c2e15719085279638332f3b2c5f41a))
+* update the handling of duplicate files ([ba39f10](https://github.com/homelabdude/docker-pdf-server/commit/ba39f103b038540fbd1cca895c5c0ed57332e589))
+
+
+### Features
+
+* Merge pull request [#132](https://github.com/homelabdude/docker-pdf-server/issues/132) from homelabdude/fix/move-from-fitz-to-pymupdf ([a699ff6](https://github.com/homelabdude/docker-pdf-server/commit/a699ff6368f7b6c7463c7fd6323536625657b16a))
+* Merge pull request [#151](https://github.com/homelabdude/docker-pdf-server/issues/151) from homelabdude/beta ([ed7dacb](https://github.com/homelabdude/docker-pdf-server/commit/ed7dacb8e5bd6991b5d61290b93f1c97ccd28717))
+* Move from fitz to pymupdf ([b6c3b99](https://github.com/homelabdude/docker-pdf-server/commit/b6c3b99dec7447e634d25dc03700ed4ae954967a))
+* warn on duplicate file uploads ([eea7966](https://github.com/homelabdude/docker-pdf-server/commit/eea796643317deab10964cc88c07b3bdd863f87a))
+
 # [1.11.0-beta.4](https://github.com/homelabdude/docker-pdf-server/compare/v1.11.0-beta.3...v1.11.0-beta.4) (2026-10-10)
 
 
