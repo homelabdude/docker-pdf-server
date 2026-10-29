@@ -3,11 +3,13 @@ import json
 import os
 import math
 import secrets
+import shutil
+import tempfile
 import time
 import threading
 from urllib.parse import urlparse, urljoin
 
-import fitz  # PyMuPDF
+import pymupdf  # formerly imported as "fitz"
 from authlib.integrations.flask_client import OAuth
 from flask import (
     Flask,
@@ -40,7 +42,6 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import generate_password_hash, check_password_hash
 
 UPLOAD_FOLDER = "library"
-APP_KEY = os.environ.get("DOCKER_PDF_SERVER_KEY", "super_secret_key")
 APP_USER = os.environ.get("DOCKER_PDF_SERVER_USER", "admin")
 APP_PASSWORD = os.environ.get("DOCKER_PDF_SERVER_PASSWORD", "password")
 ALLOWED_EXTENSIONS = {"pdf", "epub"}
@@ -48,12 +49,23 @@ ROLES = [("reader", "Reader"), ("admin", "Admin"), ("maintainer", "Maintainer")]
 # Failed logins before a DB user is locked; 0 disables lockout. Admin-editable.
 LOGIN_LOCKOUT_DEFAULT = 5
 
+# Reject uploads larger than this (MB). Override with DOCKER_PDF_SERVER_MAX_UPLOAD_MB.
+try:
+    MAX_UPLOAD_MB = max(1, int(os.environ.get("DOCKER_PDF_SERVER_MAX_UPLOAD_MB", "512")))
+except ValueError:
+    MAX_UPLOAD_MB = 512
+
 
 def _env_bool(name, default=False):
     value = os.environ.get(name)
     if value is None:
         return default
     return value.strip().lower() in ("1", "true", "yes", "on")
+
+
+# Strict mode turns the insecure-default warnings below into hard startup
+# failures (unset secret key, default admin password).
+STRICT_MODE = _env_bool("DOCKER_PDF_SERVER_STRICT")
 
 
 # ── OIDC (optional) ──────────────────────────────────────────────────────────
@@ -72,10 +84,51 @@ OIDC_ENABLED = bool(OIDC_CLIENT_ID and OIDC_CLIENT_SECRET and OIDC_ISSUER)
 
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+
+
+def _resolve_secret_key():
+    """Return the configured secret key, or generate and persist one.
+
+    When DOCKER_PDF_SERVER_KEY is unset we write a random key to the instance
+    folder so it stays stable across restarts and is shared by every gunicorn.
+    """
+    configured = os.environ.get("DOCKER_PDF_SERVER_KEY")
+    if configured:
+        return configured
+    if STRICT_MODE:
+        raise RuntimeError(
+            "DOCKER_PDF_SERVER_KEY must be set when DOCKER_PDF_SERVER_STRICT is enabled."
+        )
+    os.makedirs(app.instance_path, exist_ok=True)
+    key_path = os.path.join(app.instance_path, "secret_key")
+    with open(key_path + ".lock", "a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        try:
+            with open(key_path) as f:
+                existing = f.read().strip()
+            if existing:
+                return existing
+        except OSError:
+            pass
+        key = secrets.token_urlsafe(48)
+        with open(key_path, "w") as f:
+            f.write(key)
+        try:
+            os.chmod(key_path, 0o600)
+        except OSError:
+            pass
+        app.logger.warning(
+            "DOCKER_PDF_SERVER_KEY is not set; generated a persistent random key "
+            "at %s. Set the env var to manage it yourself.", key_path
+        )
+        return key
+
+
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///users.db"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-app.config["SECRET_KEY"] = APP_KEY
+app.config["SECRET_KEY"] = _resolve_secret_key()
+app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD_MB * 1024 * 1024
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 # Off by default so plain-HTTP LAN deployments keep working; enable behind HTTPS.
@@ -101,7 +154,7 @@ if OIDC_ENABLED:
 
 
 class EnvAdminUser(UserMixin):
-    """Represents the env-var-configured admin; never stored in the DB."""
+    """Represents the env-var-configured admin; not stored in the DB."""
     id = 0
 
     @property
@@ -189,6 +242,25 @@ def safe_name(filename):
     )
 
 
+def library_name(filename):
+    """Name an upload is stored under: always a lowercase .pdf, which is what the
+    library scan lists. EPUBs land as their converted PDF."""
+    return filename.rsplit(".", 1)[0] + ".pdf"
+
+
+def remove_thumbnails(filename):
+    for thumb_ext in (".jpg", ".png"):
+        thumbnail_path = os.path.join(app.config["UPLOAD_FOLDER"], filename + thumb_ext)
+        if os.path.exists(thumbnail_path):
+            os.remove(thumbnail_path)
+
+
+def requested_per_page():
+    """per_page from the URL, else the value the browser last computed (cookie)."""
+    per_page = request.args.get("per_page", type=int) or request.cookies.get("per_page", type=int) or 12
+    return max(4, min(120, per_page))
+
+
 def safe_redirect(target):
     ref = urlparse(request.host_url)
     test = urlparse(urljoin(request.host_url, target))
@@ -196,18 +268,14 @@ def safe_redirect(target):
 
 
 def generate_thumbnail(pdf_path, thumbnail_path):
-    doc = fitz.open(pdf_path)
+    doc = pymupdf.open(pdf_path)
     page = doc[0]
-    pix = page.get_pixmap(matrix=fitz.Matrix(0.25, 0.25))
+    pix = page.get_pixmap(matrix=pymupdf.Matrix(0.25, 0.25))
     pix.save(thumbnail_path, jpg_quality=70)
     doc.close()
 
 
 # ── Directory cache ──────────────────────────────────────────────────────────
-# Replaces per-request os.listdir + 2000 individual getmtime() stat() calls
-# with a single os.scandir() pass, cached for 15 s. Upload/delete invalidate
-# it immediately so the UI stays consistent.
-
 _CACHE_TTL = 15.0
 _cache_lock = threading.Lock()
 _cache: dict = {"stamp": 0.0, "pdfs": [], "thumbs": set()}
@@ -399,9 +467,7 @@ def _resolve_oidc_user(claims):
             user = matches[0]
     # 3. Otherwise create a reader; an admin can promote them later. Do not
     #    adopt an existing local account by username: many providers let users
-    #    set their own `preferred_username. So A name collision is refused so
-    #    an admin can link the account deliberately.
-    if user is None:
+    #    set their own preferred_username.
         if not OIDC_AUTO_CREATE_USERS:
             return None, "There is no account for this user. Ask an admin to create one."
         desired = (username or email or "")[:80]
@@ -471,6 +537,17 @@ def oidc_callback():
     return redirect(session.pop("oidc_next", None) or url_for("index"))
 
 
+@app.errorhandler(413)
+def payload_too_large(e):
+    return (
+        render_template(
+            "error.html",
+            error_message=f"That file is too large. The maximum upload size is {MAX_UPLOAD_MB} MB.",
+        ),
+        413,
+    )
+
+
 @app.errorhandler(500)
 def internal_server_error(e):
     return (
@@ -487,7 +564,7 @@ def internal_server_error(e):
 @login_required
 def index():
     page = request.args.get("page", 1, type=int)
-    per_page = max(4, min(120, request.args.get("per_page", 12, type=int)))
+    per_page = requested_per_page()
     sort_order = request.args.get("sort", "newest")
     upload_folder = app.config["UPLOAD_FOLDER"]
 
@@ -521,7 +598,7 @@ def index():
 def search():
     query = request.args.get("query", "").strip()
     page = request.args.get("page", 1, type=int)
-    per_page = max(4, min(120, request.args.get("per_page", 12, type=int)))
+    per_page = requested_per_page()
     sort_order = request.args.get("sort", "newest")
     upload_folder = app.config["UPLOAD_FOLDER"]
 
@@ -574,45 +651,84 @@ def upload_file():
         flash("Invalid file name.", "danger")
         return redirect(url_for("index"))
     if file and allowed_file(file.filename):
-        filename = file.filename
-        ext = filename.rsplit(".", 1)[1].lower()
-        file_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
-        file.save(file_path)
+        folder = app.config["UPLOAD_FOLDER"]
+        final_name = library_name(file.filename)
+        final_path = os.path.join(folder, final_name)
+        replacing = os.path.exists(final_path)
+        # The browser asks before replacing; this catches anything that
+        # skipped the prompt, or a file that appeared since it was shown.
+        if replacing and request.form.get("overwrite") != "1":
+            flash(f"“{final_name}” already exists.", "warning")
+            return redirect(url_for("index"))
 
-        if ext == "epub":
-            pdf_filename = filename.rsplit(".", 1)[0] + ".pdf"
-            pdf_path = os.path.join(app.config["UPLOAD_FOLDER"], pdf_filename)
-            try:
-                doc = fitz.open(file_path)
-                pdf_bytes = doc.convert_to_pdf()
-                doc.close()
-                with open(pdf_path, "wb") as f:
-                    f.write(pdf_bytes)
-            except Exception:
-                os.remove(file_path)
-                return render_template(
-                    "error.html",
-                    error_message="Could not convert EPUB to PDF. The file may be malformed.",
-                )
-            os.remove(file_path)
-            filename = pdf_filename
-            file_path = pdf_path
-
+        # Build the PDF and its thumbnail in a staging dir, so a bad upload
+        # never touches the library — in particular, never destroys the file
+        # it was meant to replace. The dir lives inside the library (same
+        # filesystem, so moving out of it is atomic); library scans skip dirs.
+        staging = tempfile.mkdtemp(dir=folder, prefix=".upload-")
         try:
-            thumbnail_path = os.path.join(app.config["UPLOAD_FOLDER"], filename + ".jpg")
-            generate_thumbnail(file_path, thumbnail_path)
-        except Exception:
-            error_message = (
-                "Could not generate thumbnail. The PDF may be malformed. "
-                "You may still view it if your client supports it."
-            )
-            return render_template("error.html", error_message=error_message)
+            staged_pdf = os.path.join(staging, final_name)
+            if file.filename.rsplit(".", 1)[1].lower() == "epub":
+                staged_epub = os.path.join(staging, "upload.epub")
+                file.save(staged_epub)
+                try:
+                    doc = pymupdf.open(staged_epub)
+                    pdf_bytes = doc.convert_to_pdf()
+                    doc.close()
+                    with open(staged_pdf, "wb") as f:
+                        f.write(pdf_bytes)
+                except Exception:
+                    return render_template(
+                        "error.html",
+                        error_message="Could not convert EPUB to PDF. The file may be malformed.",
+                    )
+            else:
+                file.save(staged_pdf)
 
-        _invalidate_cache()
-        return redirect(url_for("index"))
+            staged_thumb = staged_pdf + ".jpg"
+            try:
+                generate_thumbnail(staged_pdf, staged_thumb)
+            except Exception:
+                if replacing:
+                    error_message = (
+                        f"Could not read the new “{final_name}”. The PDF may be malformed. "
+                        "The existing file was kept."
+                    )
+                    return render_template("error.html", error_message=error_message)
+                os.replace(staged_pdf, final_path)
+                remove_thumbnails(final_name)
+                _invalidate_cache()
+                error_message = (
+                    "Could not generate thumbnail. The PDF may be malformed. "
+                    "You may still view it if your client supports it."
+                )
+                return render_template("error.html", error_message=error_message)
+
+            os.replace(staged_pdf, final_path)
+            # Drop any .png left by the file this replaced; the .jpg is overwritten.
+            remove_thumbnails(final_name)
+            os.replace(staged_thumb, final_path + ".jpg")
+            _invalidate_cache()
+            return redirect(url_for("index"))
+        finally:
+            shutil.rmtree(staging, ignore_errors=True)
 
     flash("Unsupported file type. Please upload a PDF or EPUB.", "danger")
     return redirect(url_for("index"))
+
+
+@app.route("/upload/check")
+@login_required
+def upload_check():
+    """Tell the upload form whether a file would replace one already in the library."""
+    if current_user.role not in ["admin", "maintainer"]:
+        return jsonify({"error": "Unauthorized"}), 403
+    filename = request.args.get("name", "")
+    if not (safe_name(filename) and allowed_file(filename)):
+        return jsonify({"exists": False})
+    final_name = library_name(filename)
+    exists = os.path.exists(os.path.join(app.config["UPLOAD_FOLDER"], final_name))
+    return jsonify({"exists": exists, "name": final_name})
 
 
 @app.route("/library/<filename>")
@@ -632,12 +748,9 @@ def delete_file():
     file_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
     if safe_name(filename) and os.path.isfile(file_path):
         os.remove(file_path)
-        for thumb_ext in (".jpg", ".png"):
-            thumbnail_path = os.path.join(app.config["UPLOAD_FOLDER"], filename + thumb_ext)
-            if os.path.exists(thumbnail_path):
-                os.remove(thumbnail_path)
+        remove_thumbnails(filename)
         _invalidate_cache()
-        flash("File deleted successfully.", "success")
+        flash("File deleted.", "toast")
     else:
         flash("File not found.", "error")
     return redirect(url_for("index"))
@@ -802,6 +915,26 @@ def favicon():
     )
 
 
+def _check_default_credentials():
+    """Warn (or, in strict mode, refuse to start) on the default admin password."""
+    if APP_PASSWORD != "password":
+        return
+    if STRICT_MODE:
+        raise RuntimeError(
+            "Refusing to start with the default admin password while "
+            "DOCKER_PDF_SERVER_STRICT is enabled. Set DOCKER_PDF_SERVER_PASSWORD."
+        )
+    bar = "!" * 72
+    app.logger.warning(
+        "\n%s\n"
+        "SECURITY WARNING: the admin account is using the default password.\n"
+        "Anyone who can reach this instance can sign in as an administrator.\n"
+        "Set DOCKER_PDF_SERVER_PASSWORD (and DOCKER_PDF_SERVER_USER) to secure it.\n"
+        "%s",
+        bar, bar,
+    )
+
+
 def init_db():
     # Every gunicorn worker imports this module at the same time; serialise
     # create_all() so they don't all race to create the tables on a fresh DB.
@@ -831,6 +964,7 @@ def _migrate_user_table():
             conn.execute(text('ALTER TABLE "user" ADD COLUMN locked BOOLEAN NOT NULL DEFAULT 0'))
 
 
+_check_default_credentials()
 init_db()
 
 if __name__ == "__main__":

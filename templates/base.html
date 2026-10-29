@@ -35,12 +35,21 @@
 
   <div class="page-content">
     {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
+      {% set inline = messages | rejectattr(0, 'equalto', 'toast') | list %}
+      {% set toasts = messages | selectattr(0, 'equalto', 'toast') | list %}
+      {% if inline %}
         <ul class="flash-list">
-          {% for category, message in messages %}
+          {% for category, message in inline %}
             <li class="flash flash-{{ category }}">{{ message }}</li>
           {% endfor %}
         </ul>
+      {% endif %}
+      {% if toasts %}
+        <div class="toast-stack" role="status" aria-live="polite">
+          {% for _, message in toasts %}
+            <div class="toast"><i class="fa-solid fa-check"></i> {{ message }}</div>
+          {% endfor %}
+        </div>
       {% endif %}
     {% endwith %}
 
